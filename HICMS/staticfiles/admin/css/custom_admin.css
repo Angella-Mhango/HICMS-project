@@ -1,0 +1,60 @@
+/* static/admin/css/custom_admin.css */
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Custom table hover effects */
+.results table tbody tr:hover td {
+    background-color: #f0fdf4 !important;
+}
+
+/* Custom button animations */
+.button, input[type=submit], .object-tools a {
+    transition: all 0.2s ease;
+    transform: translateY(0);
+}
+
+.button:hover, input[type=submit]:hover, .object-tools a:hover {
+    transform: translateY(-1px);
+}
+
+/* Custom card styling */
+.module {
+    border-radius: 12px !important;
+    overflow: hidden;
+}
+
+/* Success/Error message styling */
+.messagelist li {
+    border-radius: 8px !important;
+    padding: 12px 16px !important;
+}
+
+.success {
+    background: #f0fdf4 !important;
+    color: #166534 !important;
+    border-left-color: #16a34a !important;
+}
+
+.errornote {
+    background: #fef2f2 !important;
+    color: #991b1b !important;
+    border-left-color: #ef4444 !important;
+}
