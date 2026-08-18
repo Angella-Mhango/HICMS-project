@@ -13,7 +13,8 @@ from rest_framework.response import Response
 from facilities.models import Department, Facility
 from .models import (
     Inspection, InspectionType, ChecklistCategory,
-    ChecklistItem, InspectionAnswer, InspectionPlan, InspectionSchedule
+    ChecklistItem, InspectionAnswer, InspectionPlan, InspectionSchedule,
+    CorrectiveAction, CorrectiveActionComment,
 )
 from accounts.permissions import role_required
 from audit.utils import log_action
@@ -133,14 +134,24 @@ def dashboard_stats(request):
             queryset = queryset.filter(date__gte=start_date, date__lte=end_date)
         
         total = queryset.count()
-        compliant = queryset.filter(status='Compliant').count()
-        non_compliant = queryset.filter(status='Non-compliant').count()
+        # A facility's current position is its most recent inspection in the selected view.
+        latest_inspection_ids = []
+        for facility_id in queryset.exclude(facility_id__isnull=True).values_list('facility_id', flat=True).distinct():
+            latest = queryset.filter(facility_id=facility_id).order_by('-date', '-id').first()
+            if latest:
+                latest_inspection_ids.append(latest.id)
+        facility_results = queryset.filter(id__in=latest_inspection_ids)
+        compliant = facility_results.filter(status='Compliant').count()
+        non_compliant = facility_results.filter(status='Non-compliant').count()
         avg_score = queryset.aggregate(avg=Avg('score'))['avg'] or 0
         
-        compliance_rate = round((compliant / total * 100), 1) if total > 0 else 0
+        compliance_rate = round((compliant / facility_results.count() * 100), 1) if facility_results.exists() else 0
         
         return JsonResponse({
             'total_inspections': total,
+            'assessed_facilities': facility_results.count(),
+            'compliant_facilities': compliant,
+            'non_compliant_facilities': non_compliant,
             'compliant': compliant,
             'non_compliant': non_compliant,
             'compliance_rate': compliance_rate,
@@ -173,6 +184,24 @@ def _filtered_official_inspections(request):
     if facility_id:
         queryset = queryset.filter(facility_id=facility_id)
 
+    return queryset
+
+
+def _apply_dashboard_date_filter(queryset, request):
+    """Apply the date controls shared by every dashboard dataset."""
+    date_range = request.GET.get('date_range')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+    today = datetime.now().date()
+
+    if date_range == 'month':
+        return queryset.filter(date__gte=today - timedelta(days=30))
+    if date_range == 'quarter':
+        return queryset.filter(date__gte=today - timedelta(days=90))
+    if date_range == 'year':
+        return queryset.filter(date__gte=today - timedelta(days=365))
+    if start_date and end_date:
+        return queryset.filter(date__gte=start_date, date__lte=end_date)
     return queryset
 
 
@@ -306,11 +335,68 @@ def alerts_api(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def standards_performance(request):
+    """Return performance for every assessed standard in the selected dashboard scope."""
+    try:
+        inspections = _filtered_official_inspections(request)
+        date_range = request.GET.get('date_range')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        if date_range == 'month':
+            inspections = inspections.filter(date__gte=datetime.now().date() - timedelta(days=30))
+        elif date_range == 'quarter':
+            inspections = inspections.filter(date__gte=datetime.now().date() - timedelta(days=90))
+        elif date_range == 'year':
+            inspections = inspections.filter(date__gte=datetime.now().date() - timedelta(days=365))
+        elif start_date and end_date:
+            inspections = inspections.filter(date__gte=start_date, date__lte=end_date)
+
+        grouped = {}
+        # Do not defer the facility fields selected by _filtered_official_inspections;
+        # Django rejects combining select_related('facility', ...) with only('notes').
+        for inspection in inspections:
+            marker = 'STANDARD_PERFORMANCE='
+            if marker not in (inspection.notes or ''):
+                continue
+            try:
+                snapshot = json.loads(inspection.notes.rsplit(marker, 1)[1].strip())
+            except (TypeError, ValueError, json.JSONDecodeError):
+                continue
+            for standard in snapshot if isinstance(snapshot, list) else []:
+                standard_id = standard.get('id')
+                if not standard_id:
+                    continue
+                item = grouped.setdefault(standard_id, {
+                    'standard': standard.get('code') or standard.get('name') or 'Standard',
+                    'standard_name': standard.get('name') or standard.get('code') or 'Standard',
+                    'score': 0,
+                    'possible': 0,
+                })
+                item['score'] += int(standard.get('score') or 0)
+                item['possible'] += int(standard.get('possible') or 0)
+
+        data = []
+        for item in grouped.values():
+            performance = round((item['score'] / item['possible']) * 100, 1) if item['possible'] else 0
+            data.append({
+                'standard': item['standard'],
+                'standard_name': item['standard_name'],
+                'performance': performance,
+                'status': 'Met' if performance >= 80 else 'Not met',
+            })
+        data.sort(key=lambda item: item['performance'], reverse=True)
+        return JsonResponse(data, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def summary_stats(request):
     """Get dashboard summary counts for the current filtered scope."""
     try:
         facilities = Facility.objects.all()
-        inspections = official_inspections()
+        inspections = _apply_dashboard_date_filter(_filtered_official_inspections(request), request)
 
         level = request.GET.get('level')
         level_id = request.GET.get('id')
@@ -323,7 +409,16 @@ def summary_stats(request):
             inspections = inspections.filter(facility__district_id=level_id)
         elif level == 'facility' and level_id:
             facilities = facilities.filter(id=level_id)
-            inspections = inspections.filter(facility_id=level_id)
+
+        region_id = request.GET.get('region_id')
+        district_id = request.GET.get('district_id')
+        facility_id = request.GET.get('facility_id')
+        if region_id:
+            facilities = facilities.filter(region_id=region_id)
+        if district_id:
+            facilities = facilities.filter(district_id=district_id)
+        if facility_id:
+            facilities = facilities.filter(id=facility_id)
 
         month_start = datetime.now().date().replace(day=1)
 
@@ -342,7 +437,7 @@ def department_performance(request):
     """Get department performance rankings"""
     try:
         data = (
-            official_inspections()
+            _apply_dashboard_date_filter(_filtered_official_inspections(request), request)
             .values('department__name')
             .annotate(
                 avg_score=Avg('score'),
@@ -362,7 +457,7 @@ def district_comparison(request):
     """Get district comparison data"""
     try:
         data = (
-            official_inspections()
+            _apply_dashboard_date_filter(_filtered_official_inspections(request), request)
             .values('facility__district__name')
             .annotate(
                 avg_score=Avg('score'),
@@ -382,7 +477,7 @@ def facility_ranking(request):
     """Get facility rankings by average score"""
     try:
         data = (
-            official_inspections()
+            _apply_dashboard_date_filter(_filtered_official_inspections(request), request)
             .values('facility_name')
             .annotate(
                 avg_score=Avg('score'),
@@ -402,7 +497,8 @@ def inspection_timeline(request):
     """Get inspection timeline for Gantt chart"""
     try:
         data = []
-        for inspection in official_inspections():
+        inspections = _apply_dashboard_date_filter(_filtered_official_inspections(request), request)
+        for inspection in inspections:
             data.append({
                 'facility_name': inspection.facility_name,
                 'department': inspection.department.name if inspection.department else 'N/A',
@@ -624,10 +720,16 @@ def chart_data(request):
     """Get inspection data grouped by month for charts"""
     try:
         six_months_ago = datetime.now().date() - timedelta(days=180)
+        inspections = _filtered_official_inspections(request)
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        if start_date and end_date:
+            inspections = inspections.filter(date__gte=start_date, date__lte=end_date)
+        else:
+            inspections = inspections.filter(date__gte=six_months_ago)
         
         inspections_by_month = (
-            official_inspections()
-            .filter(date__gte=six_months_ago)
+            inspections
             .annotate(month=TruncMonth('date'))
             .values('month')
             .annotate(
@@ -660,10 +762,23 @@ def compliance_trends(request):
     """Get compliance trends over time"""
     try:
         six_months_ago = datetime.now().date() - timedelta(days=180)
+        inspections = _filtered_official_inspections(request)
+        date_range = request.GET.get('date_range')
+        start_date = request.GET.get('start_date')
+        end_date = request.GET.get('end_date')
+        if date_range == 'month':
+            inspections = inspections.filter(date__gte=datetime.now().date() - timedelta(days=30))
+        elif date_range == 'quarter':
+            inspections = inspections.filter(date__gte=datetime.now().date() - timedelta(days=90))
+        elif date_range == 'year':
+            inspections = inspections.filter(date__gte=datetime.now().date() - timedelta(days=365))
+        elif start_date and end_date:
+            inspections = inspections.filter(date__gte=start_date, date__lte=end_date)
+        else:
+            inspections = inspections.filter(date__gte=six_months_ago)
         
         monthly_data = (
-            official_inspections()
-            .filter(date__gte=six_months_ago)
+            inspections
             .annotate(month=TruncMonth('date'))
             .values('month')
             .annotate(
@@ -867,66 +982,110 @@ def _corrective_action_status(deadline, completed=False):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def corrective_actions(request):
-    """Derive corrective actions from non-compliant inspections."""
+    """Return database-backed actions for non-compliant inspections in scope."""
     inspections = (
-        official_inspections()
+        _filtered_official_inspections(request)
         .filter(Q(status='Non-compliant') | Q(score__lt=F('benchmark')))
-        .select_related('facility', 'department', 'facility__district', 'facility__region', 'mcm_inspection_type')
         .order_by('-date', '-id')
     )
-
-    region_id = request.GET.get('region_id')
-    district_id = request.GET.get('district_id')
-    facility_id = request.GET.get('facility_id')
-
-    if region_id:
-        inspections = inspections.filter(facility__region_id=region_id)
-    if district_id:
-        inspections = inspections.filter(facility__district_id=district_id)
-    if facility_id:
-        inspections = inspections.filter(facility_id=facility_id)
-
     actions = []
     for inspection in inspections:
-        score = inspection.score or 0
-        deadline = inspection.followup_date or (inspection.date + timedelta(days=30) if inspection.date else None)
-        category = _inspection_issue_category(inspection)
-
-        if inspection.suspension_recommended or score < 45:
-            severity = 'Critical'
-        elif score < 60:
-            severity = 'High'
-        else:
-            severity = 'Medium'
-
-        issue = inspection.gaps_weaknesses.strip() if inspection.gaps_weaknesses else f'{category} issue identified during inspection'
-        recommendation = inspection.recommendations.strip() if inspection.recommendations else 'Prepare and submit a corrective action plan.'
-
-        actions.append({
-            'id': inspection.id,
-            'inspection_id': inspection.id,
-            'issue': issue,
-            'category': category,
-            'facility': inspection.facility_name or (inspection.facility.name if inspection.facility else 'Unknown Facility'),
-            'facility_id': inspection.facility_id,
-            'department': inspection.department.name if inspection.department else 'General',
-            'department_id': inspection.department_id,
-            'district': inspection.facility.district.name if inspection.facility and inspection.facility.district else None,
-            'region': inspection.facility.region.name if inspection.facility and inspection.facility.region else None,
-            'severity': severity,
-            'deadline': deadline.isoformat() if deadline else None,
-            'status': _corrective_action_status(deadline),
-            'score': score,
-            'inspection_date': inspection.date.isoformat() if inspection.date else None,
-            'inspection_type': inspection.mcm_inspection_type.get_name_display() if inspection.mcm_inspection_type else inspection.visit_type,
-            'inspector': inspection.inspector,
-            'recommendation': recommendation,
-            'requires_followup': inspection.requires_followup,
-            'suspension_recommended': inspection.suspension_recommended,
-            'comments': [],
-        })
+        default_deadline = inspection.followup_date or (inspection.date + timedelta(days=30) if inspection.date else None)
+        action, _ = CorrectiveAction.objects.get_or_create(
+            inspection=inspection,
+            defaults={'deadline': default_deadline},
+        )
+        actions.append(_serialize_corrective_action(action))
 
     return JsonResponse(actions, safe=False)
+
+
+def _serialize_corrective_action(action):
+    inspection = action.inspection
+    score = inspection.score or 0
+    category = _inspection_issue_category(inspection)
+    severity = 'Critical' if inspection.suspension_recommended or score < 45 else ('High' if score < 60 else 'Medium')
+    status = action.status
+    if status == 'Pending' and action.deadline and action.deadline < datetime.now().date():
+        status = 'Overdue'
+
+    return {
+        'id': action.id,
+        'inspection_id': inspection.id,
+        'issue': inspection.gaps_weaknesses.strip() if inspection.gaps_weaknesses else f'{category} issue identified during inspection',
+        'category': category,
+        'facility': inspection.facility_name or (inspection.facility.name if inspection.facility else 'Unknown Facility'),
+        'facility_id': inspection.facility_id,
+        'department': inspection.department.name if inspection.department else 'General',
+        'department_id': inspection.department_id,
+        'district': inspection.facility.district.name if inspection.facility and inspection.facility.district else None,
+        'region': inspection.facility.region.name if inspection.facility and inspection.facility.region else None,
+        'severity': severity,
+        'deadline': action.deadline.isoformat() if action.deadline else None,
+        'status': status,
+        'score': score,
+        'inspection_date': inspection.date.isoformat() if inspection.date else None,
+        'inspection_type': inspection.mcm_inspection_type.get_name_display() if inspection.mcm_inspection_type else inspection.visit_type,
+        'inspector': inspection.inspector,
+        'recommendation': inspection.recommendations.strip() if inspection.recommendations else 'Prepare and submit a corrective action plan.',
+        'requires_followup': inspection.requires_followup,
+        'suspension_recommended': inspection.suspension_recommended,
+        'comments': [
+            {
+                'id': comment.id,
+                'user': comment.user.username if comment.user else 'Former user',
+                'text': comment.text,
+                'date': comment.created_at.date().isoformat(),
+            }
+            for comment in action.comments.select_related('user').all()
+        ],
+    }
+
+
+def _scoped_corrective_action(request, action_id):
+    inspection_ids = _filtered_official_inspections(request).values_list('id', flat=True)
+    return get_object_or_404(
+        CorrectiveAction.objects.select_related(
+            'inspection', 'inspection__facility', 'inspection__facility__district',
+            'inspection__facility__region', 'inspection__department', 'inspection__mcm_inspection_type',
+        ),
+        id=action_id,
+        inspection_id__in=inspection_ids,
+    )
+
+
+@api_view(['PATCH'])
+@permission_classes([IsAuthenticated])
+def corrective_action_detail(request, action_id):
+    action = _scoped_corrective_action(request, action_id)
+    data = request.data if isinstance(request.data, dict) else {}
+    status = data.get('status')
+    if status == 'Overdue':
+        status = 'Pending'
+    if status not in dict(CorrectiveAction.STATUS_CHOICES):
+        return JsonResponse({'error': 'Invalid corrective action status'}, status=400)
+    action.status = status
+    action.save(update_fields=['status', 'updated_at'])
+    return JsonResponse(_serialize_corrective_action(action))
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def corrective_action_comments(request, action_id):
+    action = _scoped_corrective_action(request, action_id)
+    text = str(request.data.get('comment') or '').strip()
+    if not text:
+        return JsonResponse({'error': 'Comment is required'}, status=400)
+    comment = CorrectiveActionComment.objects.create(corrective_action=action, user=request.user, text=text)
+    return JsonResponse({
+        'success': True,
+        'comment': {
+            'id': comment.id,
+            'user': request.user.username,
+            'text': comment.text,
+            'date': comment.created_at.date().isoformat(),
+        },
+    }, status=201)
 
 
 

@@ -17,6 +17,7 @@ import {
   Search
 } from "lucide-react";
 import { showToast } from "./Toast";
+import useModalExperience from "./useModalExperience";
 
 export default function PlanManagementModal({
   user,
@@ -26,6 +27,7 @@ export default function PlanManagementModal({
   planToEdit,
   isEditMode = false
 }) {
+  useModalExperience(isOpen, onClose);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -256,10 +258,9 @@ export default function PlanManagementModal({
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-4 overflow-y-auto"
-      style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)' }}
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-label={isEditMode ? "Edit inspection plan" : "Create inspection plan"} className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
         
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-t-2xl z-10">
@@ -582,8 +583,8 @@ export default function PlanManagementModal({
                 <span className="text-gray-500">Status:</span>
                 <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
                   formData.status === 'draft' ? 'bg-gray-200 text-gray-700' :
-                  formData.status === 'published' ? 'bg-blue-100 text-blue-700' :
-                  formData.status === 'in_progress' ? 'bg-yellow-100 text-yellow-700' :
+                  formData.status === 'published' ? 'bg-green-100 text-green-700' :
+                  formData.status === 'in_progress' ? 'bg-green-100 text-green-700' :
                   'bg-green-100 text-green-700'
                 }`}>
                   {formData.status}

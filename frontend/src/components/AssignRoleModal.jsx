@@ -4,8 +4,10 @@ import {
   UserCheck, UserX, Users 
 } from "lucide-react";
 import { showToast } from "../components/Toast";
+import useModalExperience from "./useModalExperience";
 
 export default function AssignRoleModal({ isOpen, onClose, onSuccess, user, selectedUser, roles }) {
+  useModalExperience(isOpen && Boolean(selectedUser), onClose);
   const [selectedRoleId, setSelectedRoleId] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -69,10 +71,9 @@ export default function AssignRoleModal({ isOpen, onClose, onSuccess, user, sele
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-4"
-      style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)' }}
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-label="Assign role" className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl">
         
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-t-2xl z-10">
@@ -105,10 +106,10 @@ export default function AssignRoleModal({ isOpen, onClose, onSuccess, user, sele
           )}
 
           {/* User Information */}
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <User className="w-5 h-5 text-blue-600" />
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <User className="w-5 h-5 text-green-600" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-700">
@@ -149,9 +150,9 @@ export default function AssignRoleModal({ isOpen, onClose, onSuccess, user, sele
                 required
               >
                 <option value="">Choose a role</option>
-                {roles.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    {role.name}
+                {roles.filter((role) => role.is_active !== false || role.id === selectedUser.role_id).map((role) => (
+                  <option key={role.id} value={role.id} disabled={role.is_active === false}>
+                    {role.name}{role.is_active === false ? " (Archived)" : ""}
                   </option>
                 ))}
               </select>
@@ -164,11 +165,11 @@ export default function AssignRoleModal({ isOpen, onClose, onSuccess, user, sele
 
             {/* Role Change Warning */}
             {currentRole && selectedRoleId && parseInt(selectedRoleId) !== selectedUser.role_id && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-xs text-yellow-700">
+                    <p className="text-xs text-green-700">
                       <span className="font-medium">Changing role:</span> This will replace the current 
                       <span className="font-medium"> {currentRole.name}</span> role with 
                       <span className="font-medium"> {selectedRole.name}</span>

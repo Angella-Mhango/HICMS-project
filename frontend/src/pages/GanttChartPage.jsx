@@ -1,4 +1,4 @@
-﻿// frontend/src/pages/GanttChartPage.jsx
+// frontend/src/pages/GanttChartPage.jsx
 import { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import GanttChart from "../components/GanttChart";
@@ -144,13 +144,13 @@ export default function GanttChartPage({ user, onLogout }) {
   const canEdit = isNationalAdmin();
 
   const handleEditPlan = (plan) => {
-    console.log("âœï¸ Editing plan:", plan);
+    console.log("✏️ Editing plan:", plan);
     setSelectedPlan(plan);
     setShowEditModal(true);
   };
 
   const handleOpenCreateModal = () => {
-    console.log("ðŸ”„ Opening Create Plan Modal");
+    console.log("🔄 Opening Create Plan Modal");
     setSelectedPlan(null);
     setShowCreateModal(true);
   };
@@ -298,12 +298,12 @@ export default function GanttChartPage({ user, onLogout }) {
           user={user}
           isOpen={showCreateModal}
           onClose={() => {
-            console.log("ðŸ”´ Closing Create Plan Modal");
+            console.log("🔴 Closing Create Plan Modal");
             setShowCreateModal(false);
             setSelectedPlan(null);
           }}
           onSuccess={() => {
-            console.log("âœ… Plan created successfully, refreshing data...");
+            console.log("✅ Plan created successfully, refreshing data...");
             handleRefresh();
           }}
           planToEdit={null}
@@ -317,12 +317,12 @@ export default function GanttChartPage({ user, onLogout }) {
           user={user}
           isOpen={showEditModal}
           onClose={() => {
-            console.log("ðŸ”´ Closing Edit Plan Modal");
+            console.log("🔴 Closing Edit Plan Modal");
             setShowEditModal(false);
             setSelectedPlan(null);
           }}
           onSuccess={() => {
-            console.log("âœ… Plan updated successfully, refreshing data...");
+            console.log("✅ Plan updated successfully, refreshing data...");
             handleRefresh();
           }}
           planToEdit={selectedPlan}

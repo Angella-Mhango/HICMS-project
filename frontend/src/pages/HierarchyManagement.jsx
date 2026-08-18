@@ -188,10 +188,10 @@ export default function HierarchyManagement({ user, onLogout }) {
 
   const getLevelBadgeColor = (levelName) => {
     const colors = {
-      national: "bg-purple-100 text-purple-700",
-      regional: "bg-blue-100 text-blue-700",
+      national: "bg-green-100 text-green-700",
+      regional: "bg-green-100 text-green-700",
       district: "bg-green-100 text-green-700",
-      facility: "bg-yellow-100 text-yellow-700"
+      facility: "bg-green-100 text-green-700"
     };
     return colors[levelName] || "bg-gray-100 text-gray-700";
   };
@@ -217,7 +217,7 @@ export default function HierarchyManagement({ user, onLogout }) {
 
         {/* Current Admin Info */}
         {currentAdmin && (
-          <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-4 mb-6 border border-green-200">
+          <div className="bg-gradient-to-r from-green-50 to-green-50 rounded-xl p-4 mb-6 border border-green-200">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Your Current Level</p>
@@ -232,8 +232,8 @@ export default function HierarchyManagement({ user, onLogout }) {
                 <p className="text-sm text-gray-500">Permissions</p>
                 <div className="flex gap-2 mt-1">
                   {currentAdmin.can_manage_admins && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Manage Admins</span>}
-                  {currentAdmin.can_manage_users && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Manage Users</span>}
-                  {currentAdmin.can_view_all_reports && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">View Reports</span>}
+                  {currentAdmin.can_manage_users && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">Manage Users</span>}
+                  {currentAdmin.can_view_all_reports && <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">View Reports</span>}
                 </div>
               </div>
             </div>
@@ -243,11 +243,11 @@ export default function HierarchyManagement({ user, onLogout }) {
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-purple-600">{summary.national_admins || 0}</p>
+            <p className="text-2xl font-bold text-green-600">{summary.national_admins || 0}</p>
             <p className="text-xs text-gray-500">National Admins</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-blue-600">{summary.regional_admins || 0}</p>
+            <p className="text-2xl font-bold text-green-600">{summary.regional_admins || 0}</p>
             <p className="text-xs text-gray-500">Regional Admins</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
@@ -255,11 +255,11 @@ export default function HierarchyManagement({ user, onLogout }) {
             <p className="text-xs text-gray-500">District Admins</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-yellow-600">{summary.facility_admins || 0}</p>
+            <p className="text-2xl font-bold text-green-600">{summary.facility_admins || 0}</p>
             <p className="text-xs text-gray-500">Facility Admins</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 text-center">
-            <p className="text-2xl font-bold text-orange-600">{summary.qa_members || 0}</p>
+            <p className="text-2xl font-bold text-green-600">{summary.qa_members || 0}</p>
             <p className="text-xs text-gray-500">QA Members</p>
           </div>
         </div>
@@ -347,8 +347,8 @@ export default function HierarchyManagement({ user, onLogout }) {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1">
-                          {admin.can_manage_admins && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Manage Admins</span>}
-                          {admin.can_manage_users && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Manage Users</span>}
+                          {admin.can_manage_admins && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Manage Admins</span>}
+                          {admin.can_manage_users && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Manage Users</span>}
                           {admin.can_create_inspection_plans && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">Create Plans</span>}
                         </div>
                       </td>

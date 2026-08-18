@@ -118,7 +118,7 @@ export default function FacilityReportsPage({ user, onLogout }) {
     const statusMap = {
       "Compliant": "bg-green-100 text-green-700",
       "Non-compliant": "bg-red-100 text-red-700",
-      "Partial": "bg-yellow-100 text-yellow-700"
+      "Partial": "bg-green-100 text-green-700"
     };
     return <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusMap[status] || "bg-gray-100 text-gray-700"}`}>{status}</span>;
   };
@@ -212,10 +212,10 @@ export default function FacilityReportsPage({ user, onLogout }) {
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <div className="flex items-center gap-2 mb-1">
-              <Clock className="w-4 h-4 text-yellow-500" />
+              <Clock className="w-4 h-4 text-green-500" />
               <p className="text-xs text-gray-500">Pending Actions</p>
             </div>
-            <p className="text-xl font-bold text-yellow-600">{summary.pendingActions || 0}</p>
+            <p className="text-xl font-bold text-green-600">{summary.pendingActions || 0}</p>
           </div>
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
             <div className="flex items-center gap-2 mb-1">
@@ -249,7 +249,7 @@ export default function FacilityReportsPage({ user, onLogout }) {
                         <div 
                           className={`h-2 rounded-full transition-all ${
                             item.score >= 80 ? "bg-green-500" :
-                            item.score >= 60 ? "bg-yellow-500" : "bg-red-500"
+                            item.score >= 60 ? "bg-green-500" : "bg-red-500"
                           }`}
                           style={{ width: `${item.score}%` }}
                         />
@@ -295,12 +295,12 @@ export default function FacilityReportsPage({ user, onLogout }) {
         </div>
 
         {/* Quick Tips */}
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-          <h4 className="font-medium text-blue-800 flex items-center gap-2">
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+          <h4 className="font-medium text-green-800 flex items-center gap-2">
             <AlertCircle className="w-4 h-4" />
             Report Tips
           </h4>
-          <ul className="mt-2 text-sm text-blue-700 space-y-1">
+          <ul className="mt-2 text-sm text-green-700 space-y-1">
             <li>• Use the filters above to customize your report view</li>
             <li>• Export reports in PDF format for sharing with stakeholders</li>
             <li>• Track trends over time to measure improvement</li>

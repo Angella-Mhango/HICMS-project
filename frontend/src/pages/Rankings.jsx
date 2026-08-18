@@ -63,7 +63,7 @@ export default function Rankings({ user, onLogout }) {
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${
                         facility.average_score >= 80 ? 'bg-green-100 text-green-700' :
-                        facility.average_score >= 60 ? 'bg-yellow-100 text-yellow-700' :
+                        facility.average_score >= 60 ? 'bg-green-100 text-green-700' :
                         'bg-red-100 text-red-700'
                       }`}>
                         {facility.average_score >= 80 ? 'Compliant' :

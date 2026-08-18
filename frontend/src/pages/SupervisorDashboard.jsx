@@ -74,8 +74,8 @@ export default function SupervisorDashboard({ user, onLogout }) {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-2xl shadow-md p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-xl">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="p-2 bg-green-100 rounded-xl">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
             </div>
@@ -116,8 +116,8 @@ export default function SupervisorDashboard({ user, onLogout }) {
 
         <div className="bg-white rounded-2xl shadow-md p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-xl">
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="p-2 bg-green-100 rounded-xl">
+              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
@@ -156,7 +156,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   <td className="px-6 py-4 text-sm text-gray-500">{i.department}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{i.inspector}</td>
                   <td className={`px-6 py-4 text-sm font-medium ${
-                    i.score >= 80 ? "text-green-600" : i.score >= 50 ? "text-yellow-600" : "text-red-600"
+                    i.score >= 80 ? "text-green-600" : i.score >= 50 ? "text-green-600" : "text-red-600"
                   }`}>
                     {i.score}%
                   </td>
@@ -173,7 +173,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                     <div className="flex gap-2">
                       <button
                         onClick={() => handleViewDetails(i)}
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        className="text-green-600 hover:text-green-800 text-sm font-medium"
                       >
                         View
                       </button>
@@ -233,7 +233,7 @@ export default function SupervisorDashboard({ user, onLogout }) {
                   <label className="text-xs text-gray-500 block">Score</label>
                   <p className={`font-medium ${
                     selectedInspection.score >= 80 ? "text-green-600" : 
-                    selectedInspection.score >= 50 ? "text-yellow-600" : "text-red-600"
+                    selectedInspection.score >= 50 ? "text-green-600" : "text-red-600"
                   }`}>
                     {selectedInspection.score}%
                   </p>

@@ -42,9 +42,9 @@ export default function Toast({ id, message, type = "success", duration = 3000, 
       case "error":
         return <AlertCircle className="w-5 h-5 text-red-600" />;
       case "warning":
-        return <AlertTriangle className="w-5 h-5 text-yellow-600" />;
+        return <AlertTriangle className="w-5 h-5 text-green-600" />;
       case "info":
-        return <Info className="w-5 h-5 text-blue-600" />;
+        return <Info className="w-5 h-5 text-green-600" />;
       default:
         return <CheckCircle className="w-5 h-5 text-green-600" />;
     }
@@ -57,9 +57,9 @@ export default function Toast({ id, message, type = "success", duration = 3000, 
       case "error":
         return "bg-red-50 border-red-200";
       case "warning":
-        return "bg-yellow-50 border-yellow-200";
+        return "bg-green-50 border-green-200";
       case "info":
-        return "bg-blue-50 border-blue-200";
+        return "bg-green-50 border-green-200";
       default:
         return "bg-green-50 border-green-200";
     }
@@ -72,9 +72,9 @@ export default function Toast({ id, message, type = "success", duration = 3000, 
       case "error":
         return "text-red-800";
       case "warning":
-        return "text-yellow-800";
+        return "text-green-800";
       case "info":
-        return "text-blue-800";
+        return "text-green-800";
       default:
         return "text-green-800";
     }

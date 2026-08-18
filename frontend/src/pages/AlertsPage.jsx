@@ -9,7 +9,6 @@ import {
   Info,
   MapPin,
   RefreshCw,
-  X,
   XCircle
 } from "lucide-react";
 import { showToast } from "../components/Toast";
@@ -18,7 +17,7 @@ const API_BASE = "http://127.0.0.1:8000";
 
 const AlertTypeIcon = ({ type }) => {
   if (type === "critical") return <XCircle className="w-6 h-6 text-red-500" />;
-  if (type === "warning") return <AlertCircle className="w-6 h-6 text-yellow-500" />;
+  if (type === "warning") return <AlertCircle className="w-6 h-6 text-green-500" />;
   return <Info className="w-6 h-6 text-green-500" />;
 };
 
@@ -26,7 +25,7 @@ export default function AlertsPage({ user, onLogout }) {
   const [alerts, setAlerts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentAdmin, setCurrentAdmin] = useState(null);
-  const [dismissedAlerts, setDismissedAlerts] = useState([]);
+  const [summary, setSummary] = useState({ critical: 0, warning: 0, info: 0, total: 0 });
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -37,7 +36,7 @@ export default function AlertsPage({ user, onLogout }) {
     if (currentAdmin !== null) {
       fetchAlerts();
     }
-  }, [currentAdmin, dismissedAlerts]);
+  }, [currentAdmin]);
 
   const authHeaders = {
     "Authorization": `Token ${user.token}`
@@ -84,13 +83,11 @@ export default function AlertsPage({ user, onLogout }) {
 
       const data = await response.json();
       const dbAlerts = Array.isArray(data.alerts) ? data.alerts : [];
-      const visibleAlerts = dbAlerts.filter(alert => !dismissedAlerts.includes(alert.id));
-      setAlerts(visibleAlerts);
+      setAlerts(dbAlerts);
+      setSummary(data.summary || { critical: 0, warning: 0, info: 0, total: dbAlerts.length });
 
-      if (visibleAlerts.length === 0 && dbAlerts.length > 0) {
-        showToast("All alerts have been dismissed", "info");
-      } else if (visibleAlerts.length > 0) {
-        showToast(`Found ${visibleAlerts.length} active alerts`, "info");
+      if (dbAlerts.length > 0) {
+        showToast(`Found ${dbAlerts.length} active alerts`, "info");
       } else {
         showToast("No alerts found. All systems are compliant!", "success");
       }
@@ -98,22 +95,17 @@ export default function AlertsPage({ user, onLogout }) {
       console.error("Error fetching alerts:", error);
       setError("Failed to load alerts from the database. Please try again.");
       setAlerts([]);
+      setSummary({ critical: 0, warning: 0, info: 0, total: 0 });
       showToast("Failed to load alerts", "error");
     } finally {
       setLoading(false);
     }
   };
 
-  const dismissAlert = (alertId) => {
-    setDismissedAlerts(prev => [...prev, alertId]);
-    setAlerts(prev => prev.filter(alert => alert.id !== alertId));
-    showToast("Alert dismissed", "info");
-  };
-
   const getAlertBgColor = (type) => {
     switch (type) {
       case "critical": return "bg-red-50 border-red-200";
-      case "warning": return "bg-yellow-50 border-yellow-200";
+      case "warning": return "bg-green-50 border-green-200";
       default: return "bg-green-50 border-green-200";
     }
   };
@@ -121,7 +113,7 @@ export default function AlertsPage({ user, onLogout }) {
   const getAlertBorderColor = (type) => {
     switch (type) {
       case "critical": return "border-l-4 border-l-red-500";
-      case "warning": return "border-l-4 border-l-yellow-500";
+      case "warning": return "border-l-4 border-l-green-500";
       default: return "border-l-4 border-l-green-500";
     }
   };
@@ -129,7 +121,7 @@ export default function AlertsPage({ user, onLogout }) {
   const getAlertTextColor = (type) => {
     switch (type) {
       case "critical": return "text-red-700";
-      case "warning": return "text-yellow-700";
+      case "warning": return "text-green-700";
       default: return "text-green-700";
     }
   };
@@ -237,13 +229,6 @@ export default function AlertsPage({ user, onLogout }) {
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-gray-400">{alert.date}</span>
-                      <button
-                        onClick={() => dismissAlert(alert.id)}
-                        className="text-gray-400 hover:text-gray-600 transition p-1 rounded hover:bg-gray-200"
-                        title="Dismiss Alert"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
                   <p className={`text-sm mt-1 ${getAlertTextColor(alert.type)} opacity-80`}>
@@ -268,28 +253,28 @@ export default function AlertsPage({ user, onLogout }) {
             <XCircle className="w-4 h-4 text-red-500" />
             <p className="text-xs text-gray-500">Critical Alerts</p>
           </div>
-          <p className="text-xl font-bold text-red-600">{alerts.filter(a => a.type === "critical").length}</p>
+          <p className="text-xl font-bold text-red-600">{summary.critical}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex items-center gap-2 mb-1">
-            <AlertCircle className="w-4 h-4 text-yellow-500" />
+            <AlertCircle className="w-4 h-4 text-green-500" />
             <p className="text-xs text-gray-500">Warnings</p>
           </div>
-          <p className="text-xl font-bold text-yellow-600">{alerts.filter(a => a.type === "warning").length}</p>
+          <p className="text-xl font-bold text-green-600">{summary.warning}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex items-center gap-2 mb-1">
             <Info className="w-4 h-4 text-green-500" />
             <p className="text-xs text-gray-500">Info Alerts</p>
           </div>
-          <p className="text-xl font-bold text-green-600">{alerts.filter(a => a.type === "info").length}</p>
+          <p className="text-xl font-bold text-green-600">{summary.info}</p>
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex items-center gap-2 mb-1">
             <FileText className="w-4 h-4 text-green-500" />
             <p className="text-xs text-gray-500">Total Issues</p>
           </div>
-          <p className="text-xl font-bold text-green-600">{alerts.length}</p>
+          <p className="text-xl font-bold text-green-600">{summary.total}</p>
         </div>
       </div>
     </Layout>

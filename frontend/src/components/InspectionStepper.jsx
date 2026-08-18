@@ -1,4 +1,4 @@
-﻿// frontend/src/components/InspectionStepper.jsx
+// frontend/src/components/InspectionStepper.jsx
 import { useState, useEffect, useRef } from "react";
 import {
   X,
@@ -65,22 +65,22 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
   const fetchFacilities = async () => {
     try {
       setLoading(true);
-      console.log("ðŸ“¡ Fetching facilities...");
+      console.log("📡 Fetching facilities...");
       const response = await fetch(`${API_BASE}/facilities/api/`, {
         headers: { "Authorization": `Token ${user.token}` }
       });
       
       if (response.ok) {
         const data = await response.json();
-        console.log("âœ… Facilities loaded:", data.length);
+        console.log("✅ Facilities loaded:", data.length);
         setFacilities(Array.isArray(data) ? data : []);
       } else {
-        console.error("âŒ Failed to fetch facilities:", response.status);
+        console.error("❌ Failed to fetch facilities:", response.status);
         setFacilities([]);
         showToast("Failed to load facilities", "error");
       }
     } catch (error) {
-      console.error("âŒ Error fetching facilities:", error);
+      console.error("❌ Error fetching facilities:", error);
       setFacilities([]);
       showToast("Error loading facilities", "error");
     } finally {
@@ -110,7 +110,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
   };
   // When facility is selected, fetch departments
   const handleFacilityChange = async (facilityId) => {
-    console.log("ðŸ¥ Facility selected:", facilityId);
+    console.log("🏥 Facility selected:", facilityId);
     setSelectedFacility(facilityId);
     setSelectedDepartment("");
     setSelectedInspectionType("");
@@ -139,7 +139,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
     setLoadingDepartments(true);
     
     try {
-      console.log("ðŸ“¡ Fetching departments for facility:", facilityId);
+      console.log("📡 Fetching departments for facility:", facilityId);
       const deptResponse = await fetch(`${API_BASE}/facilities/${facilityId}/departments/`, {
         headers: { "Authorization": `Token ${user.token}` }
       });
@@ -147,7 +147,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
       if (deptResponse.ok) {
         const deptData = await deptResponse.json();
         const depts = Array.isArray(deptData) ? deptData : (deptData.departments || []);
-        console.log("âœ… Departments loaded:", depts.length);
+        console.log("✅ Departments loaded:", depts.length);
         setDepartments(depts);
         
         if (depts.length > 0) {
@@ -158,13 +158,13 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
           setLoadingDepartments(false);
         }
       } else {
-        console.error("âŒ Failed to fetch departments:", deptResponse.status);
+        console.error("❌ Failed to fetch departments:", deptResponse.status);
         setError("Failed to load departments");
         showToast("Failed to load departments", "error");
         setLoadingDepartments(false);
       }
     } catch (error) {
-      console.error("âŒ Error in handleFacilityChange:", error);
+      console.error("❌ Error in handleFacilityChange:", error);
       setError("Error loading facility data");
       showToast("Error loading facility data", "error");
       setLoadingDepartments(false);
@@ -176,11 +176,11 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
     if (!requirement) return null;
     
     const rawCriteria = requirement.criteria;
-    console.log(`ðŸ” Parsing criteria for requirement ${requirement.id}:`, rawCriteria);
+    console.log(`🔍 Parsing criteria for requirement ${requirement.id}:`, rawCriteria);
     
     // If no criteria object at all
     if (!rawCriteria) {
-      console.warn(`âš ï¸ No criteria object found for requirement ${requirement.id}`);
+      console.warn(`� ️ No criteria object found for requirement ${requirement.id}`);
       return null;
     }
     
@@ -207,7 +207,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
     
     // If no items found, return null (don't use default fallback)
     if (items.length === 0) {
-      console.warn(`âš ï¸ No criteria items found for requirement ${requirement.id}`);
+      console.warn(`� ️ No criteria items found for requirement ${requirement.id}`);
       return null;
     }
     
@@ -217,7 +217,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
       points: item.points || 1
     }));
     
-    console.log(`ðŸ“Š Final criteria for ${requirement.name}:`, items);
+    console.log(`📊 Final criteria for ${requirement.name}:`, items);
     return items;
   };
 
@@ -248,7 +248,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
       });
       
       if (!response.ok) {
-        console.error("âŒ Failed to fetch standards:", response.status);
+        console.error("❌ Failed to fetch standards:", response.status);
         setStandards([]);
         setLoadingStandards(false);
         setLoadingDepartments(false);
@@ -256,7 +256,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
       }
       
       const data = await response.json();
-      console.log("âœ… Standards raw data:", JSON.stringify(data, null, 2));
+      console.log("✅ Standards raw data:", JSON.stringify(data, null, 2));
       
       let standardsData = [];
       if (Array.isArray(data)) {
@@ -269,7 +269,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
 
       standardsData = onlyActiveStandards(standardsData);
       
-      console.log("ðŸ“Š Standards parsed:", standardsData.length);
+      console.log("📊 Standards parsed:", standardsData.length);
       
       setStandards(standardsData);
       
@@ -312,7 +312,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
       
       // If no criteria found anywhere, show a message
       if (!hasCriteria && standardsData.length > 0) {
-        setError("âš ï¸ No criteria defined for these requirements. Please add criteria in Manage Standards.");
+        setError("� ️ No criteria defined for these requirements. Please add criteria in Manage Standards.");
         showToast("No criteria defined. Please add criteria in Manage Standards.", "warning");
       }
       
@@ -322,7 +322,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
       setLoadingDepartments(false);
       
     } catch (error) {
-      console.error("âŒ Error fetching standards:", error);
+      console.error("❌ Error fetching standards:", error);
       setStandards([]);
       setLoadingStandards(false);
       setLoadingDepartments(false);
@@ -423,7 +423,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
         score += criterion.points || 1;
       }
     });
-    return score;
+    return Math.round(score);
   };
 
   const getRequirementPossibleScore = (reqId) => {
@@ -432,7 +432,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
 
     const criteriaItems = getCriteriaItems(requirement);
     if (criteriaItems && criteriaItems.length > 0) {
-      return criteriaItems.reduce((total, criterion) => total + (Number(criterion.points) || 1), 0);
+      return Math.round(criteriaItems.reduce((total, criterion) => total + (Number(criterion.points) || 1), 0));
     }
 
     return Number(requirement.max_score) || 0;
@@ -450,15 +450,14 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
 
   const isRequirementComplete = (reqId) => {
     const answer = answers[reqId];
-    if (!answer) return false;
+    // Unchecked criteria represent a score of zero, so they must remain valid
+    // responses; otherwise an inspection could only ever be submitted at 100%.
+    if (!answer || !answer.criteria_scores) return false;
     const requirement = getRequirementById(reqId);
     if (!requirement) return false;
     
     const criteriaItems = getCriteriaItems(requirement);
-    if (!criteriaItems || criteriaItems.length === 0) return false;
-    
-    const checkedCount = Object.values(answer.criteria_scores).filter(v => v).length;
-    return checkedCount === criteriaItems.length;
+    return Boolean(criteriaItems && criteriaItems.length > 0);
   };
 
   const isRequirementPartial = (reqId) => {
@@ -761,7 +760,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
                   ))}
                 </select>
                 {selectedFacility && departments.length === 0 && !loadingDepartments && (
-                  <p className="text-xs text-yellow-600 mt-1">No departments found for this facility</p>
+                  <p className="text-xs text-green-600 mt-1">No departments found for this facility</p>
                 )}
               </div>
               <div>
@@ -812,12 +811,12 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
                   </div>
                 )}
                 {selectedFacility && selectedDepartment && selectedInspectionType && departments.length > 0 && standards.length === 0 && !loadingStandards && (
-                  <p className="text-xs text-yellow-600 mt-1">No standards found for this department and inspection type.</p>
+                  <p className="text-xs text-green-600 mt-1">No standards found for this department and inspection type.</p>
                 )}
               </div>
             </div>
             {!selectedFacility && (
-              <p className="text-xs text-yellow-600 mt-2">Please select a facility to begin inspection</p>
+              <p className="text-xs text-green-600 mt-2">Please select a facility to begin inspection</p>
             )}
             {error && (
               <p className="text-xs text-red-600 mt-2">{error}</p>
@@ -851,7 +850,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
                         </span>
                       )}
                       {isPartial && !isComplete && (
-                        <span className="text-xs text-yellow-600 flex items-center gap-1">
+                        <span className="text-xs text-green-600 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           Partially Complete
                         </span>
@@ -885,10 +884,10 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
                       })}
                     </div>
                   ) : (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4 text-center">
-                      <AlertCircle className="w-5 h-5 text-yellow-600 mx-auto mb-2" />
-                      <p className="text-sm text-yellow-700 font-medium">No Criteria Defined</p>
-                      <p className="text-xs text-yellow-600">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 text-center">
+                      <AlertCircle className="w-5 h-5 text-green-600 mx-auto mb-2" />
+                      <p className="text-sm text-green-700 font-medium">No Criteria Defined</p>
+                      <p className="text-xs text-green-600">
                         This requirement doesn't have any criteria configured.
                         Please add criteria in the Manage Standards section.
                       </p>
@@ -1066,7 +1065,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-10 h-10 text-green-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">Inspection Submitted! ðŸŽ‰</h3>
+            <h3 className="text-2xl font-bold text-gray-800 mb-2">Inspection Submitted! 🎉</h3>
             <p className="text-gray-600 mb-4">
               Your inspection has been saved successfully.
             </p>
@@ -1075,7 +1074,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
                 <span className="text-sm text-gray-500">Score</span>
                 <span className={`text-xl font-bold ${
                   successData.score >= 80 ? "text-green-600" :
-                  successData.score >= 50 ? "text-yellow-600" : "text-red-600"
+                  successData.score >= 50 ? "text-green-600" : "text-red-600"
                 }`}>
                   {successData.score}%
                 </span>
@@ -1084,7 +1083,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
                 <span className="text-sm text-gray-500">Status</span>
                 <span className={`px-3 py-1 text-sm font-medium rounded-full ${
                   successData.score >= 80 ? "bg-green-100 text-green-700" :
-                  successData.score >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"
+                  successData.score >= 50 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                 }`}>
                   {successData.score >= 80 ? "Compliant" :
                    successData.score >= 50 ? "Partially Compliant" : "Non-Compliant"}

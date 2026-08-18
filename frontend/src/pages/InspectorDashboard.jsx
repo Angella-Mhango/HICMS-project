@@ -346,7 +346,7 @@ export default function InspectorDashboard({ user, onLogout }) {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
               <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
                 <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-yellow-500" />
+                  <AlertTriangle className="w-5 h-5 text-green-500" />
                   Pending Actions
                 </h3>
               </div>
@@ -358,7 +358,7 @@ export default function InspectorDashboard({ user, onLogout }) {
                   </div>
                 ) : (
                   pendingActions.slice(0, 3).map((action) => (
-                    <div key={action.id} className="border-l-4 border-yellow-500 bg-yellow-50 p-3 rounded-r-lg">
+                    <div key={action.id} className="border-l-4 border-green-500 bg-green-50 p-3 rounded-r-lg">
                       <p className="text-sm font-medium text-gray-800">{action.issue}</p>
                       <p className="text-xs text-gray-500 mt-1">
                         <Building2 className="w-3 h-3 inline mr-1" />
@@ -366,7 +366,7 @@ export default function InspectorDashboard({ user, onLogout }) {
                       </p>
                       <div className="flex justify-between items-center mt-2">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${
-                          action.status === 'Overdue' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
+                          action.status === 'Overdue' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
                         }`}>
                           {action.status}
                         </span>

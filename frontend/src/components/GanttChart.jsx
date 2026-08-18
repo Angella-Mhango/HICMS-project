@@ -1,4 +1,4 @@
-﻿// frontend/src/components/GanttChart.jsx
+// frontend/src/components/GanttChart.jsx
 import { useMemo, useState } from "react";
 import {
   Building2,
@@ -37,7 +37,7 @@ const addDays = (date, days) => new Date(date.getTime() + days * DAY_MS);
 
 const statusConfig = {
   scheduled: { label: "Scheduled", bar: "bg-green-600", badge: "bg-green-50 text-green-700 border-green-200" },
-  rescheduled: { label: "Rescheduled", bar: "bg-amber-500", badge: "bg-amber-50 text-amber-700 border-amber-200" },
+  rescheduled: { label: "Rescheduled", bar: "bg-green-500", badge: "bg-green-50 text-green-700 border-green-200" },
   in_progress: { label: "In Progress", bar: "bg-green-600", badge: "bg-green-50 text-green-700 border-green-200" },
   completed: { label: "Completed", bar: "bg-slate-500", badge: "bg-slate-50 text-slate-700 border-slate-200" },
   cancelled: { label: "Cancelled", bar: "bg-red-600", badge: "bg-red-50 text-red-700 border-red-200" }

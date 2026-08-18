@@ -149,7 +149,7 @@ export default function PreInspectionPage({ user, onLogout }) {
 
   const getScoreColor = (score) => {
     if (score >= 80) return "text-green-600";
-    if (score >= 60) return "text-yellow-600";
+    if (score >= 60) return "text-green-600";
     return "text-red-600";
   };
 
@@ -158,7 +158,7 @@ export default function PreInspectionPage({ user, onLogout }) {
     if (statusLower === "completed" || statusLower === "submitted" || statusLower === "approved") {
       return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Completed</span>;
     }
-    return <span className="px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-700">Pending</span>;
+    return <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-700">Pending</span>;
   };
 
   if (loading) {
@@ -176,15 +176,15 @@ export default function PreInspectionPage({ user, onLogout }) {
     return (
       <Layout user={user} onLogout={onLogout}>
         <div className="flex flex-col items-center justify-center h-64">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 max-w-md text-center">
-            <AlertCircle className="w-12 h-12 text-yellow-600 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-yellow-800 mb-2">No Facility Assigned</h3>
-            <p className="text-yellow-700">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-8 max-w-md text-center">
+            <AlertCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-green-800 mb-2">No Facility Assigned</h3>
+            <p className="text-green-700">
               {error || "Your account is not linked to a facility. Please contact your administrator."}
             </p>
             <button
               onClick={fetchFacilityInfo}
-              className="mt-4 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition"
+              className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
             >
               <RefreshCw className="w-4 h-4 inline mr-2" />
               Retry
@@ -281,10 +281,10 @@ export default function PreInspectionPage({ user, onLogout }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{totalPreInspections - completedCount}</p>
+                <p className="text-2xl font-bold text-green-600">{totalPreInspections - completedCount}</p>
               </div>
-              <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                <Clock className="w-5 h-5 text-yellow-600" />
+              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <Clock className="w-5 h-5 text-green-600" />
               </div>
             </div>
           </div>

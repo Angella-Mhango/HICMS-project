@@ -1,4 +1,4 @@
-﻿// frontend/src/pages/ComplianceMonitoring.jsx
+// frontend/src/pages/ComplianceMonitoring.jsx
 import { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import {
@@ -94,7 +94,7 @@ export default function ComplianceMonitoring({ user, onLogout }) {
         actionsUrl += "?" + params.toString();
       }
       
-      console.log("ðŸ“¡ Fetching corrective actions from:", actionsUrl);
+      console.log("📡 Fetching corrective actions from:", actionsUrl);
       
       // Fetch corrective actions
       const actionsResponse = await fetch(actionsUrl, {
@@ -105,9 +105,9 @@ export default function ComplianceMonitoring({ user, onLogout }) {
       if (actionsResponse.ok) {
         actionsData = await actionsResponse.json();
         actionsData = Array.isArray(actionsData) ? actionsData : [];
-        console.log("âœ… Corrective actions loaded:", actionsData.length);
+        console.log("✅ Corrective actions loaded:", actionsData.length);
       } else {
-        console.warn("âš ï¸ Corrective actions API returned:", actionsResponse.status);
+        console.warn("⚠️ Corrective actions API returned:", actionsResponse.status);
         // Don't set error here, just use empty array
       }
       
@@ -153,7 +153,7 @@ export default function ComplianceMonitoring({ user, onLogout }) {
           statsUrl += "?" + statsParams.toString();
         }
         
-        console.log("ðŸ“¡ Fetching stats from:", statsUrl);
+        console.log("📡 Fetching stats from:", statsUrl);
         
         const statsResponse = await fetch(statsUrl, {
           headers: { "Authorization": `Token ${user.token}` }
@@ -163,9 +163,9 @@ export default function ComplianceMonitoring({ user, onLogout }) {
           complianceRate = statsData.compliance_rate || 0;
           compliantCount = statsData.compliant || 0;
           nonCompliantCount = statsData.non_compliant || 0;
-          console.log("âœ… Stats loaded:", statsData);
+          console.log("✅ Stats loaded:", statsData);
         } else {
-          console.warn("âš ï¸ Stats API returned:", statsResponse.status);
+          console.warn("⚠️ Stats API returned:", statsResponse.status);
         }
       } catch (e) {
         console.error("Error fetching stats:", e);
@@ -188,7 +188,7 @@ export default function ComplianceMonitoring({ user, onLogout }) {
       }
       
     } catch (error) {
-      console.error("âŒ Error fetching data:", error);
+      console.error("❌ Error fetching data:", error);
       setError("Failed to load compliance data. Please try again.");
       showToast("Failed to load compliance data", "error");
       setDataLoaded(true);
@@ -313,9 +313,9 @@ export default function ComplianceMonitoring({ user, onLogout }) {
     const statusLower = status?.toLowerCase();
     switch (statusLower) {
       case "completed": return "bg-green-100 text-green-700 border-green-200";
-      case "pending": return "bg-yellow-50 text-yellow-700 border-yellow-200";
+      case "pending": return "bg-green-50 text-green-700 border-green-200";
       case "overdue": return "bg-red-100 text-red-700 border-red-200";
-      case "in progress": return "bg-blue-50 text-blue-700 border-blue-200";
+      case "in progress": return "bg-green-50 text-green-700 border-green-200";
       default: return "bg-gray-100 text-gray-700 border-gray-200";
     }
   };
@@ -324,9 +324,9 @@ export default function ComplianceMonitoring({ user, onLogout }) {
     const statusLower = status?.toLowerCase();
     switch (statusLower) {
       case "completed": return "bg-green-100 text-green-700";
-      case "pending": return "bg-yellow-100 text-yellow-700";
+      case "pending": return "bg-green-100 text-green-700";
       case "overdue": return "bg-red-100 text-red-700";
-      case "in progress": return "bg-blue-100 text-blue-700";
+      case "in progress": return "bg-green-100 text-green-700";
       default: return "bg-gray-100 text-gray-700";
     }
   };
@@ -347,8 +347,8 @@ export default function ComplianceMonitoring({ user, onLogout }) {
     const severityLower = severity?.toLowerCase();
     switch (severityLower) {
       case "critical": return "text-red-600 font-bold";
-      case "high": return "text-orange-600 font-medium";
-      case "medium": return "text-yellow-600";
+      case "high": return "text-green-600 font-medium";
+      case "medium": return "text-green-600";
       default: return "text-gray-500";
     }
   };
@@ -402,7 +402,7 @@ export default function ComplianceMonitoring({ user, onLogout }) {
 
   return (
     <Layout user={user} onLogout={onLogout}>
-      <div className="p-6">
+      <div>
         <div className="mb-8">
           <div className="flex justify-between items-start">
             <div>
@@ -411,12 +411,6 @@ export default function ComplianceMonitoring({ user, onLogout }) {
                 {getPageTitle()}
               </h1>
               <p className="text-gray-500 mt-1">{getPageSubtitle()}</p>
-              {/* Show that no inspections have been done */}
-              {dataLoaded && correctiveActions.length === 0 && (
-                <p className="text-sm text-green-600 mt-1">
-                  âœ… No corrective actions needed - all facilities are compliant!
-                </p>
-              )}
             </div>
             <button
               onClick={fetchData}
@@ -470,10 +464,10 @@ export default function ComplianceMonitoring({ user, onLogout }) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-500">Pending Actions</p>
-                <p className="text-2xl font-bold text-yellow-600">{complianceStats.pendingActions}</p>
+                <p className="text-2xl font-bold text-green-600">{complianceStats.pendingActions}</p>
               </div>
-              <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                <Clock className="w-6 h-6 text-yellow-600" />
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <Clock className="w-6 h-6 text-green-600" />
               </div>
             </div>
           </div>
@@ -615,20 +609,13 @@ export default function ComplianceMonitoring({ user, onLogout }) {
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                   <CheckCircle className="w-10 h-10 text-green-600" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-700">All Facilities Are Compliant! ðŸŽ‰</h3>
+                <h3 className="text-lg font-medium text-gray-700">No Corrective Actions Found</h3>
                 <p className="text-gray-500 mt-2 max-w-md mx-auto">
                   {dataLoaded 
-                    ? "No corrective actions found in your scope. All facilities are meeting compliance standards!"
+                    ? "No corrective actions are currently recorded for the selected scope."
                     : "Unable to load corrective actions. Please try refreshing the page."
                   }
                 </p>
-                {dataLoaded && correctiveActions.length === 0 && (
-                  <div className="mt-4 text-sm text-gray-400">
-                    <p>âœ… No pending issues</p>
-                    <p>âœ… All inspections passed</p>
-                    <p>âœ… No corrective actions needed</p>
-                  </div>
-                )}
                 {dataLoaded && (
                   <button
                     onClick={fetchData}

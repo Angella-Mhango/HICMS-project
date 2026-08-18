@@ -9,8 +9,10 @@ import {
   AlertCircle,
   Plus
 } from "lucide-react";
+import useModalExperience from "./useModalExperience";
 
 export default function AddFacilityModal({ isOpen, onClose, onSuccess, user }) {
+  useModalExperience(isOpen, onClose);
   const [formData, setFormData] = useState({
     name: "",
     facility_type: "Public",
@@ -119,10 +121,9 @@ export default function AddFacilityModal({ isOpen, onClose, onSuccess, user }) {
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 overflow-y-auto p-4"
-      style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)' }}
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+      <div role="dialog" aria-modal="true" aria-labelledby="add-facility-title" className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl">
         {/* Header */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-t-2xl">
           <div className="flex justify-between items-center">
@@ -131,11 +132,11 @@ export default function AddFacilityModal({ isOpen, onClose, onSuccess, user }) {
                 <Building2 className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">Add New Facility</h2>
+                <h2 id="add-facility-title" className="text-xl font-bold text-white">Add New Facility</h2>
                 <p className="text-green-100 text-sm">Fill in the facility details below</p>
               </div>
             </div>
-            <button onClick={handleClose} className="text-white hover:text-gray-200 transition">
+            <button type="button" onClick={handleClose} aria-label="Close dialog" className="rounded-lg p-1 text-white transition hover:bg-white/10">
               <X className="w-6 h-6" />
             </button>
           </div>

@@ -10,7 +10,8 @@ import FacilitiesPage from "./pages/FacilitiesPage";
 import ReportsPage from "./pages/ReportsPage";
 import MCMInspection from "./components/MCMInspection";
 import AlertsPage from "./pages/AlertsPage";
-import InspectionsPage from "./pages/InspectionsPage";
+import InspectionTablePage from "./pages/InspectionTablePage";
+import ManageInspectionsPage from "./pages/ManageInspectionsPage";
 import MyInspections from "./pages/MyInspections";
 import Rankings from "./pages/Rankings";
 import AdministrationPage from "./pages/AdministrationPage";
@@ -94,7 +95,8 @@ function App() {
             <Route path="/reports" element={<ReportsPage user={user} onLogout={handleLogout} />} />
             <Route path="/alerts" element={<AlertsPage user={user} onLogout={handleLogout} />} />
             <Route path="/administration" element={<AdministrationPage user={user} onLogout={handleLogout} />} />
-            <Route path="/inspections" element={<InspectionsPage user={user} onLogout={handleLogout} />} />
+            <Route path="/inspections" element={<InspectionTablePage user={user} onLogout={handleLogout} />} />
+            <Route path="/manage-inspections" element={<ManageInspectionsPage user={user} onLogout={handleLogout} />} />
             <Route path="/mcm-inspection" element={<MCMInspection user={user} onLogout={handleLogout} />} />
             <Route path="/compliance" element={<ComplianceMonitoring user={user} onLogout={handleLogout} />} />
             <Route path="/compliance-monitoring" element={<ComplianceMonitoring user={user} onLogout={handleLogout} />} />
@@ -114,7 +116,7 @@ function App() {
             <Route path="/facilities" element={<FacilitiesPage user={user} onLogout={handleLogout} />} />
             <Route path="/alerts" element={<AlertsPage user={user} onLogout={handleLogout} />} />
             <Route path="/reports" element={<ReportsPage user={user} onLogout={handleLogout} />} />
-            <Route path="/inspections" element={<InspectionsPage user={user} onLogout={handleLogout} />} />
+            <Route path="/inspections" element={<InspectionTablePage user={user} onLogout={handleLogout} />} />
             <Route path="/compliance" element={<ComplianceMonitoring user={user} onLogout={handleLogout} />} />
             <Route path="/gantt-chart" element={<GanttChartPage user={user} onLogout={handleLogout} />} />
           </>
@@ -131,7 +133,7 @@ function App() {
             <Route path="/reports" element={<ReportsPage user={user} onLogout={handleLogout} />} />
             <Route path="/facilities" element={<FacilitiesPage user={user} onLogout={handleLogout} />} />
             <Route path="/alerts" element={<AlertsPage user={user} onLogout={handleLogout} />} />
-            <Route path="/inspections" element={<InspectionsPage user={user} onLogout={handleLogout} />} />
+            <Route path="/inspections" element={<InspectionTablePage user={user} onLogout={handleLogout} />} />
           </>
         )}
 

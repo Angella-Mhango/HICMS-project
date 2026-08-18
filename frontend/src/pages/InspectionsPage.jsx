@@ -360,7 +360,7 @@ export default function InspectionsPage({ user, onLogout }) {
 
   const getScoreColor = (score) => {
     if (score >= 80) return "text-green-600";
-    if (score >= 50) return "text-yellow-600";
+    if (score >= 50) return "text-green-600";
     return "text-red-600";
   };
 
@@ -400,7 +400,7 @@ export default function InspectionsPage({ user, onLogout }) {
           </p>
           <div className="mt-2 text-sm text-gray-400">
             {inspections.length === 0 ? (
-              <span className="text-yellow-600">ℹ️ No inspections found in the database</span>
+              <span className="text-green-600">ℹ️ No inspections found in the database</span>
             ) : (
               <span>{inspections.length} inspection{inspections.length !== 1 ? 's' : ''} found</span>
             )}
@@ -741,7 +741,7 @@ export default function InspectionsPage({ user, onLogout }) {
                                         <span className={`text-xs ${
                                           gap > 10 ? "text-red-500" :
                                           gap < -10 ? "text-green-600" :
-                                          "text-yellow-500"
+                                          "text-green-500"
                                         }`}>
                                           {gap > 0 ? '▲' : '▼'} {Math.abs(Math.round(gap))}%
                                         </span>

@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
+import { X } from "lucide-react";
+import useModalExperience from "./useModalExperience";
 
 export default function AddInspectionModal({ isOpen, onClose, onSuccess, user, initialInspector }) {
+  useModalExperience(isOpen, onClose);
   const [formData, setFormData] = useState({
     facility_id: "",
     department_id: "",
@@ -154,20 +157,23 @@ export default function AddInspectionModal({ isOpen, onClose, onSuccess, user, i
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm">
+      <div role="dialog" aria-modal="true" aria-labelledby="add-inspection-title" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
         {/* Header */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-t-2xl">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">New Inspection</h2>
+              <h2 id="add-inspection-title" className="text-xl font-bold text-white">New Inspection</h2>
               <p className="text-green-100 text-sm">Fill in the details to create a new inspection record</p>
             </div>
+            </div>
+            <button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-lg p-1 text-white transition hover:bg-white/10"><X className="h-6 w-6" /></button>
           </div>
         </div>
 
@@ -224,7 +230,7 @@ export default function AddInspectionModal({ isOpen, onClose, onSuccess, user, i
                   ))}
                 </select>
                 {formData.facility_id && departments.length === 0 && (
-                  <p className="text-xs text-yellow-600 mt-1">
+                  <p className="text-xs text-green-600 mt-1">
                     No departments found. Please add departments to this facility first.
                   </p>
                 )}

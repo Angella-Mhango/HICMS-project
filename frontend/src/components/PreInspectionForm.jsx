@@ -1,4 +1,4 @@
-﻿// frontend/src/components/PreInspectionForm.jsx
+// frontend/src/components/PreInspectionForm.jsx
 import { useState, useEffect, useRef } from "react";
 import {
   X,
@@ -16,7 +16,7 @@ import {
   Trash2,
   ChevronDown
 } from "lucide-react";
-import { showToast } from "./Toast";  // âœ… This is correct - Toast is in the same folder (components)
+import { showToast } from "./Toast";  // ✅ This is correct - Toast is in the same folder (components)
 
 const API_BASE = "http://127.0.0.1:8000";
 
@@ -60,7 +60,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
   };
 
   useEffect(() => {
-    // âœ… Guard: Only fetch if facilityId is valid
+    // ✅ Guard: Only fetch if facilityId is valid
     if (facilityId && facilityId > 0) {
       fetchAllData();
     } else {
@@ -102,21 +102,21 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
   };
 
   const fetchFacilityInfo = async () => {
-    // âœ… Guard: Don't fetch if facilityId is invalid
+    // ✅ Guard: Don't fetch if facilityId is invalid
     if (!facilityId || facilityId <= 0) {
-      console.warn("âš ï¸ Invalid facility ID, skipping facility fetch");
+      console.warn("⚠️ Invalid facility ID, skipping facility fetch");
       return;
     }
     
     try {
-      console.log("ðŸ“¡ Fetching facility info for ID:", facilityId);
+      console.log("📡 Fetching facility info for ID:", facilityId);
       const response = await fetch(`${API_BASE}/facilities/api/${facilityId}/`, {
         headers: { "Authorization": `Token ${user.token}` }
       });
       
       if (response.ok) {
         const facility = await response.json();
-        console.log("âœ… Facility found:", facility);
+        console.log("✅ Facility found:", facility);
         setFacilityInfo({ 
           name: facility.name, 
           department: "",
@@ -125,7 +125,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
         setFacilityTypeId(facility.facility_type_id);
         return facility;
       } else {
-        console.error("âŒ Failed to fetch facility:", response.status);
+        console.error("❌ Failed to fetch facility:", response.status);
         setError(`Facility with ID ${facilityId} not found`);
       }
     } catch (error) {
@@ -135,14 +135,14 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
   };
 
   const fetchDepartments = async () => {
-    // âœ… Guard: Don't fetch if facilityId is invalid
+    // ✅ Guard: Don't fetch if facilityId is invalid
     if (!facilityId || facilityId <= 0) {
-      console.warn("âš ï¸ Invalid facility ID, skipping departments fetch");
+      console.warn("⚠️ Invalid facility ID, skipping departments fetch");
       return;
     }
     
     try {
-      console.log("ðŸ“¡ Fetching departments for facility:", facilityId);
+      console.log("📡 Fetching departments for facility:", facilityId);
       const response = await fetch(`${API_BASE}/facilities/${facilityId}/departments/`, {
         headers: { "Authorization": `Token ${user.token}` }
       });
@@ -150,14 +150,14 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
         const data = await response.json();
         // Handle both array and object response
         const depts = Array.isArray(data) ? data : (data.departments || []);
-        console.log("âœ… Departments loaded:", depts.length);
+        console.log("✅ Departments loaded:", depts.length);
         setDepartments(depts);
         if (depts.length > 0) {
           setSelectedDepartment(depts[0].id);
         }
         return depts;
       } else {
-        console.error("âŒ Failed to fetch departments:", response.status);
+        console.error("❌ Failed to fetch departments:", response.status);
         setDepartments([]);
       }
     } catch (error) {
@@ -274,32 +274,32 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
       console.log("Fetching pre-inspection requirements...");
       setLoadingStandards(true);
       const url = buildStandardsUrl(facilityTypeOverride, departmentOverride, inspectionTypeOverride);
-      console.log("ðŸ“¡ Fetching from:", url);
+      console.log("📡 Fetching from:", url);
       
       const response = await fetch(url, {
         headers: { "Authorization": `Token ${user.token}` }
       });
       
-      console.log("ðŸ“¡ Response status:", response.status);
+      console.log("📡 Response status:", response.status);
       
       if (!response.ok) {
-        console.error("âŒ Failed to load requirements:", response.status);
+        console.error("❌ Failed to load requirements:", response.status);
         setError("Failed to load inspection requirements");
         showToast("Failed to load inspection requirements", "error");
         return;
       }
       
       const data = await response.json();
-      console.log("âœ… Data loaded:", data);
+      console.log("✅ Data loaded:", data);
       
-      // âœ… FIX: Handle both array and object responses
+      // ✅ FIX: Handle both array and object responses
       let standardsData = [];
       if (Array.isArray(data)) {
         standardsData = data;
       } else if (data && data.standards && Array.isArray(data.standards)) {
         standardsData = data.standards;
       } else {
-        console.warn("âš ï¸ Unexpected data format:", data);
+        console.warn("⚠️ Unexpected data format:", data);
         standardsData = [];
       }
 
@@ -317,7 +317,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
       setLoadingStandards(false);
       
     } catch (error) {
-      console.error("âŒ Error fetching requirements:", error);
+      console.error("❌ Error fetching requirements:", error);
       setError("Network error. Please check your connection.");
       showToast("Network error", "error");
       setLoadingStandards(false);
@@ -690,7 +690,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
                   Pre-Inspection
                 </h2>
                 <p className="text-green-100 text-sm">
-                  {facilityInfo.name || "Select Facility"} â€¢ Step {currentStep} of {totalSteps || 1}
+                  {facilityInfo.name || "Select Facility"} • Step {currentStep} of {totalSteps || 1}
                 </p>
               </div>
               <button onClick={onClose} className="text-white hover:text-gray-200 transition">
@@ -799,7 +799,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
                     </span>
                   )}
                   {isPartial && !isComplete && (
-                    <span className="text-xs text-yellow-600 flex items-center gap-1">
+                    <span className="text-xs text-green-600 flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       Partially Complete
                     </span>
@@ -972,7 +972,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-10 h-10 text-green-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">Pre-Inspection Submitted! ðŸŽ‰</h3>
+            <h3 className="text-2xl font-bold text-gray-800 mb-2">Pre-Inspection Submitted! 🎉</h3>
             <p className="text-gray-600 mb-4">
               Your pre-inspection has been saved successfully.
             </p>
@@ -981,7 +981,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
                 <span className="text-sm text-gray-500">Score</span>
                 <span className={`text-xl font-bold ${
                   successData.percentage >= 80 ? "text-green-600" :
-                  successData.percentage >= 50 ? "text-yellow-600" : "text-red-600"
+                  successData.percentage >= 50 ? "text-green-600" : "text-red-600"
                 }`}>
                   {successData.percentage}%
                 </span>
@@ -990,7 +990,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
                 <span className="text-sm text-gray-500">Status</span>
                 <span className={`px-3 py-1 text-sm font-medium rounded-full ${
                   successData.percentage >= 80 ? "bg-green-100 text-green-700" :
-                  successData.percentage >= 50 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"
+                  successData.percentage >= 50 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                 }`}>
                   {successData.percentage >= 80 ? "Excellent" :
                    successData.percentage >= 50 ? "Good" : "Needs Improvement"}

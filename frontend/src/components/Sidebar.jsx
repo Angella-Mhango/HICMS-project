@@ -21,7 +21,6 @@ import {
   FileCheck,
   Bell,
   TrendingUp,
-  Users,
   Building2,
   MapPin,
   Globe,
@@ -40,7 +39,7 @@ export default function Sidebar({ role, onLogout, isOpen }) {
         { name: "Compliance", path: "/compliance", icon: CheckCircle },
         { name: "Schedule", path: "/gantt-chart", icon: CalendarDays },
         { name: "Reports", path: "/reports", icon: BarChart3 },
-        { name: "User Management", path: "/users", icon: Users },
+        { name: "Manage Standards", path: "/manage-inspections", icon: ClipboardList },
         { name: "Administration", path: "/administration", icon: Settings },
         { name: "Alerts", path: "/alerts", icon: AlertTriangle },
       ];
@@ -55,7 +54,7 @@ export default function Sidebar({ role, onLogout, isOpen }) {
         { name: "Compliance", path: "/compliance", icon: CheckCircle },
         { name: "Schedule", path: "/gantt-chart", icon: CalendarDays },
         { name: "Reports", path: "/reports", icon: BarChart3 },
-        { name: "User Management", path: "/users", icon: Users },
+        { name: "Manage Standards", path: "/manage-inspections", icon: ClipboardList },
         { name: "Alerts", path: "/alerts", icon: AlertTriangle },
       ];
     }
@@ -68,7 +67,7 @@ export default function Sidebar({ role, onLogout, isOpen }) {
         { name: "Inspections", path: "/inspections", icon: Search },
         { name: "Compliance", path: "/compliance", icon: CheckCircle },
         { name: "Reports", path: "/reports", icon: BarChart3 },
-        { name: "User Management", path: "/users", icon: Users },
+        { name: "Manage Standards", path: "/manage-inspections", icon: ClipboardList },
         { name: "Alerts", path: "/alerts", icon: AlertTriangle },
       ];
     }
@@ -81,7 +80,7 @@ export default function Sidebar({ role, onLogout, isOpen }) {
         { name: "Inspections", path: "/inspections", icon: Search },
         { name: "Compliance", path: "/compliance", icon: CheckCircle },
         { name: "Reports", path: "/reports", icon: BarChart3 },
-        { name: "User Management", path: "/users", icon: Users },
+        { name: "Manage Standards", path: "/manage-inspections", icon: ClipboardList },
         { name: "Alerts", path: "/alerts", icon: AlertTriangle },
       ];
     }
@@ -133,6 +132,7 @@ export default function Sidebar({ role, onLogout, isOpen }) {
         { name: "Compliance", path: "/compliance", icon: CheckCircle },
         { name: "Schedule", path: "/gantt-chart", icon: CalendarDays },
         { name: "Reports", path: "/reports", icon: BarChart3 },
+        { name: "Manage Standards", path: "/manage-inspections", icon: ClipboardList },
         { name: "Administration", path: "/administration", icon: Settings },
         { name: "Alerts", path: "/alerts", icon: AlertTriangle },
       ];

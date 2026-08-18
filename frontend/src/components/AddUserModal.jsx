@@ -5,8 +5,10 @@ import {
   AlertCircle, UserPlus 
 } from "lucide-react";
 import { showToast } from "./Toast";
+import useModalExperience from "./useModalExperience";
 
 export default function AddUserModal({ isOpen, onClose, onSuccess, user, editingUser, roles }) {
+  useModalExperience(isOpen, onClose);
   console.log("📦 AddUserModal rendered with isOpen:", isOpen);
   
   const [formData, setFormData] = useState({
@@ -89,10 +91,9 @@ export default function AddUserModal({ isOpen, onClose, onSuccess, user, editing
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-[100] p-4"
-      style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)' }}
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-label={editingUser ? "Edit user" : "Add user"} className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl">
         
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-t-2xl z-10">
@@ -227,9 +228,9 @@ export default function AddUserModal({ isOpen, onClose, onSuccess, user, editing
               >
                 <option value="">Select a role</option>
                 {roles && roles.length > 0 ? (
-                  roles.map((role) => (
-                    <option key={role.id} value={role.id}>
-                      {role.name}
+                  roles.filter((role) => role.is_active !== false || role.id === Number(formData.role_id)).map((role) => (
+                    <option key={role.id} value={role.id} disabled={role.is_active === false}>
+                      {role.name}{role.is_active === false ? " (Archived)" : ""}
                     </option>
                   ))
                 ) : (
@@ -237,7 +238,7 @@ export default function AddUserModal({ isOpen, onClose, onSuccess, user, editing
                 )}
               </select>
               {(!roles || roles.length === 0) && (
-                <p className="text-xs text-yellow-600 mt-1">
+                <p className="text-xs text-green-600 mt-1">
                   ⚠️ No roles found. Please add a role first.
                 </p>
               )}

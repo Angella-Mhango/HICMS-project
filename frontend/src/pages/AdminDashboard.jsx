@@ -2,31 +2,39 @@
 import { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import HierarchyFilter from "../components/HierarchyFilter";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, Cell, ReferenceLine, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
 import {
   LayoutDashboard,
-  Users,
   Building2,
   CheckCircle,
   XCircle,
   TrendingUp,
   Calendar,
-  Filter,
   RefreshCw,
   MapPin,
-  Clock,
-  Award,
   AlertCircle,
   BarChart3,
-  PieChart as PieChartIcon,
-  Activity,
-  Globe,
-  UserCheck,
-  FileText
 } from "lucide-react";
 import { showToast } from "../components/Toast";
 
 const API_BASE = "http://127.0.0.1:8000";
+
+function StandardsTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+
+  const standard = payload[0].payload;
+  const isMet = standard.status === "Met";
+
+  return (
+    <div className="max-w-64 rounded-lg border border-gray-200 bg-white p-3 text-sm shadow-lg">
+      <p className="font-semibold text-gray-800">{standard.standard}: {standard.standard_name}</p>
+      <p className="mt-1 text-gray-600">Performance: <span className="font-semibold">{standard.performance}%</span></p>
+      <p className={`font-semibold ${isMet ? "text-green-600" : "text-red-600"}`}>
+        {isMet ? "Met" : "Not met"} (target: 80%)
+      </p>
+    </div>
+  );
+}
 
 export default function AdminDashboard({ user, onLogout }) {
 
@@ -34,11 +42,12 @@ export default function AdminDashboard({ user, onLogout }) {
    
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({});
-  const [chartData, setChartData] = useState([]);
+  const [, setChartData] = useState([]);
   const [complianceTrends, setComplianceTrends] = useState([]);
-  const [totalFacilities, setTotalFacilities] = useState(0);
-  const [activeInspectors, setActiveInspectors] = useState(0);
-  const [thisMonthInspections, setThisMonthInspections] = useState(0);
+  const [standardsPerformance, setStandardsPerformance] = useState([]);
+  const [, setTotalFacilities] = useState(0);
+  const [, setActiveInspectors] = useState(0);
+  const [, setThisMonthInspections] = useState(0);
   const [chartsReady, setChartsReady] = useState(false);
   
   // Hierarchy state
@@ -67,10 +76,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
   // Set charts ready after data loads
   useEffect(() => {
-    if (!loading && (chartData.length > 0 || complianceTrends.length > 0)) {
+    if (!loading && (standardsPerformance.length > 0 || complianceTrends.length > 0)) {
       setChartsReady(true);
     }
-  }, [loading, chartData, complianceTrends]);
+  }, [loading, standardsPerformance, complianceTrends]);
 
   const fetchCurrentAdmin = async () => {
     console.log("🔄 fetchCurrentAdmin started");
@@ -196,6 +205,20 @@ export default function AdminDashboard({ user, onLogout }) {
       } catch (e) {
         console.error("Error fetching compliance trends:", e);
         setComplianceTrends([]);
+      }
+
+      // Standard-level results are used for the overview performance chart and status cards.
+      try {
+        const standardsRes = await fetch(`${baseUrl}/standards-performance/filtered/?${queryString}`, { headers });
+        if (standardsRes.ok) {
+          const standardsData = await standardsRes.json();
+          setStandardsPerformance(Array.isArray(standardsData) ? standardsData : []);
+        } else {
+          setStandardsPerformance([]);
+        }
+      } catch (e) {
+        console.error("Error fetching standards performance:", e);
+        setStandardsPerformance([]);
       }
 
       // Try to fetch summary
@@ -346,41 +369,34 @@ export default function AdminDashboard({ user, onLogout }) {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center gap-2 mb-1">
-                <FileText className="w-4 h-4 text-green-500" />
-                <p className="text-xs text-gray-500">Total Inspections</p>
+                <Building2 className="w-4 h-4 text-green-500" />
+                <p className="text-xs text-gray-500">Assessed Facilities</p>
               </div>
-              <p className="text-xl font-bold text-green-600">{stats.total_inspections || 0}</p>
+              <p className="text-xl font-bold text-green-600">{stats.assessed_facilities || 0}</p>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center gap-2 mb-1">
                 <CheckCircle className="w-4 h-4 text-green-500" />
-                <p className="text-xs text-gray-500">Compliant</p>
+                <p className="text-xs text-gray-500">Compliant Facilities</p>
               </div>
-              <p className="text-xl font-bold text-green-600">{stats.compliant || 0}</p>
+              <p className="text-xl font-bold text-green-600">{stats.compliant_facilities || 0}</p>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center gap-2 mb-1">
                 <XCircle className="w-4 h-4 text-red-500" />
-                <p className="text-xs text-gray-500">Non-Compliant</p>
+                <p className="text-xs text-gray-500">Non-Compliant Facilities</p>
               </div>
-              <p className="text-xl font-bold text-red-600">{stats.non_compliant || 0}</p>
+              <p className="text-xl font-bold text-red-600">{stats.non_compliant_facilities || 0}</p>
             </div>
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center gap-2 mb-1">
                 <TrendingUp className="w-4 h-4 text-green-500" />
-                <p className="text-xs text-gray-500">Compliance Rate</p>
+                <p className="text-xs text-gray-500">Facility Compliance Rate</p>
               </div>
               <p className="text-xl font-bold text-green-600">{stats.compliance_rate || 0}%</p>
-            </div>
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Activity className="w-4 h-4 text-green-500" />
-                <p className="text-xs text-gray-500">Avg Score</p>
-              </div>
-              <p className="text-xl font-bold text-green-600">{stats.average_score || 0}%</p>
             </div>
           </div>
 
@@ -389,16 +405,25 @@ export default function AdminDashboard({ user, onLogout }) {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center gap-2 mb-4">
                 <BarChart3 className="w-5 h-5 text-gray-600" />
-                <h3 className="text-gray-600 font-semibold">Inspection Trends</h3>
+                <h3 className="text-gray-600 font-semibold">Performance Against Standards</h3>
+              </div>
+              <div className="mb-2 flex flex-wrap items-center gap-4 text-xs text-gray-600">
+                <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-green-500" /> Met (80% or above)</span>
+                <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-red-500" /> Not met (below 80%)</span>
               </div>
               <div className="h-[250px] min-h-[200px] w-full">
-                {chartsReady && chartData && chartData.length > 0 ? (
+                {chartsReady && standardsPerformance.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-                      <XAxis dataKey="month" fontSize={12} />
-                      <YAxis fontSize={12} />
-                      <Tooltip />
-                      <Bar dataKey="inspections" fill="#22c55e" />
+                    <BarChart data={standardsPerformance} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                      <XAxis dataKey="standard" fontSize={12} interval={0} angle={-25} textAnchor="end" height={55} />
+                      <YAxis fontSize={12} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                      <Tooltip content={<StandardsTooltip />} />
+                      <ReferenceLine y={80} stroke="#64748b" strokeDasharray="4 4" label={{ value: "80% target", position: "insideTopRight", fill: "#64748b", fontSize: 11 }} />
+                      <Bar dataKey="performance" name="Performance (%)" radius={[4, 4, 0, 0]}>
+                        {standardsPerformance.map((item) => (
+                          <Cell key={item.standard} fill={item.status === "Met" ? "#22c55e" : "#ef4444"} />
+                        ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -412,7 +437,7 @@ export default function AdminDashboard({ user, onLogout }) {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center gap-2 mb-4">
                 <TrendingUp className="w-5 h-5 text-gray-600" />
-                <h3 className="text-gray-600 font-semibold">Compliance Rate Trend</h3>
+                <h3 className="text-gray-600 font-semibold">Inspection Compliance Trend</h3>
               </div>
               <div className="h-[250px] min-h-[200px] w-full">
                 {chartsReady && complianceTrends && complianceTrends.length > 0 ? (
@@ -433,93 +458,43 @@ export default function AdminDashboard({ user, onLogout }) {
             </div>
           </div>
 
-          {/* Compliance Distribution and Summary */}
+          {/* Standards status */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-              <div className="flex items-center gap-2 mb-4 justify-center">
-                <PieChartIcon className="w-5 h-5 text-gray-600" />
-                <h3 className="text-gray-600 font-semibold">Compliance Distribution</h3>
+              <div className="flex items-center gap-2 mb-4">
+                <CheckCircle className="w-5 h-5 text-green-600" />
+                <h3 className="text-gray-600 font-semibold">Standards Being Met</h3>
               </div>
-              <div className="h-[250px] min-h-[200px] w-full">
-                {chartsReady && (stats.compliant > 0 || stats.non_compliant > 0) ? (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: "Compliant", value: stats.compliant || 0 },
-                          { name: "Non-Compliant", value: stats.non_compliant || 0 }
-                        ]}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                      >
-                        <Cell fill="#22c55e" />
-                        <Cell fill="#ef4444" />
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <p className="text-gray-500 text-center">No data available</p>
+              <div className="grid grid-cols-[1fr_auto] gap-3 px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <span>Standard</span><span>Performance</span>
+              </div>
+              <div className="space-y-2 max-h-[250px] overflow-y-auto">
+                {standardsPerformance.filter(item => item.status === "Met").map(item => (
+                  <div key={item.standard} className="flex justify-between gap-3 rounded-lg bg-green-50 px-3 py-2 text-sm">
+                    <span className="text-gray-700">{item.standard}: {item.standard_name}</span>
+                    <span className="font-semibold text-green-700">{item.performance}%</span>
                   </div>
-                )}
-              </div>
-              <div className="flex justify-center gap-4 mt-2">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  <span className="text-xs text-gray-600">Compliant: {stats.compliant || 0}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <span className="text-xs text-gray-600">Non-Compliant: {stats.non_compliant || 0}</span>
-                </div>
+                ))}
+                {!standardsPerformance.some(item => item.status === "Met") && <p className="py-8 text-center text-sm text-gray-500">No standards are meeting the 80% target yet.</p>}
               </div>
             </div>
 
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl shadow-sm border border-gray-200 p-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center gap-2 mb-4">
-                <Award className="w-5 h-5 text-gray-700" />
-                <h3 className="text-gray-700 font-semibold">System Summary</h3>
+                <XCircle className="w-5 h-5 text-red-600" />
+                <h3 className="text-gray-700 font-semibold">Standards Not Being Met</h3>
               </div>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 flex items-center gap-2">
-                    <Building2 className="w-4 h-4" />
-                    Total Facilities in View
-                  </span>
-                  <span className="text-lg font-bold text-gray-800">{totalFacilities || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 flex items-center gap-2">
-                    <Users className="w-4 h-4" />
-                    Active Inspectors
-                  </span>
-                  <span className="text-lg font-bold text-gray-800">{activeInspectors || 0}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600 flex items-center gap-2">
-                    <Clock className="w-4 h-4" />
-                    This Month's Inspections
-                  </span>
-                  <span className="text-lg font-bold text-gray-800">{thisMonthInspections || 0}</span>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                  <span className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                    <Award className="w-4 h-4 text-yellow-500" />
-                    Overall Grade
-                  </span>
-                  <span className={`text-lg font-bold ${
-                    (stats.compliance_rate || 0) >= 80 ? "text-green-600" :
-                    (stats.compliance_rate || 0) >= 60 ? "text-yellow-600" : "text-red-600"
-                  }`}>
-                    {(stats.compliance_rate || 0) >= 80 ? "A - Excellent" :
-                     (stats.compliance_rate || 0) >= 60 ? "B - Good" : "C - Needs Improvement"}
-                  </span>
-                </div>
+              <div className="grid grid-cols-[1fr_auto] gap-3 px-3 pb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <span>Standard</span><span>Performance</span>
+              </div>
+              <div className="space-y-2 max-h-[250px] overflow-y-auto">
+                {standardsPerformance.filter(item => item.status === "Not met").map(item => (
+                  <div key={item.standard} className="flex justify-between gap-3 rounded-lg bg-red-50 px-3 py-2 text-sm">
+                    <span className="text-gray-700">{item.standard}: {item.standard_name}</span>
+                    <span className="font-semibold text-red-700">{item.performance}%</span>
+                  </div>
+                ))}
+                {!standardsPerformance.some(item => item.status === "Not met") && <p className="py-8 text-center text-sm text-gray-500">No standards below the 80% target.</p>}
               </div>
             </div>
           </div>

@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import {
   Pencil,
-  Trash2,
+  Archive,
+  RotateCcw,
   Eye,
   Plus,
   Users,
@@ -229,47 +230,25 @@ export default function UserManagement({ user, onLogout }) {
     }
   };
 
-  const handleDeleteUser = async (userId, username) => {
-    if (!window.confirm(`Delete user "${username}"? This action cannot be undone.`)) return;
-    try {
-      const response = await fetch(`http://127.0.0.1:8000/accounts/users/${userId}/`, {
-        method: "DELETE",
-        headers: { "Authorization": `Token ${user.token}` }
-      });
-      
-      if (response.ok) {
-        await fetchUsers();
-        showToast(`User "${username}" deleted successfully`, "success");
-        if (showLogs) fetchAuditLogs();
-      } else {
-        const errorData = await response.json();
-        showToast(errorData.error || "Failed to delete user", "error");
-      }
-    } catch (error) {
-      console.error("Error deleting user:", error);
-      showToast("Network error. Please try again.", "error");
-    }
-  };
-
-  const handleDeleteRole = async (roleId, roleName) => {
-    if (!window.confirm(`Delete role "${roleName}"? This will remove this role from all users.`)) return;
+  const handleToggleRoleActive = async (roleId, roleName, currentStatus) => {
+    const action = currentStatus ? "archive" : "activate";
+    if (!window.confirm(`${action === "archive" ? "Archive" : "Activate"} role "${roleName}"?`)) return;
     try {
       const response = await fetch(`http://127.0.0.1:8000/accounts/roles/${roleId}/`, {
-        method: "DELETE",
-        headers: { "Authorization": `Token ${user.token}` }
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Token ${user.token}` },
+        body: JSON.stringify({ is_active: !currentStatus })
       });
-      
       if (response.ok) {
-        fetchRoles();
-        await fetchUsers(); // Update users as their roles may change
-        showToast(`Role "${roleName}" deleted successfully`, "success");
+        await fetchRoles();
+        showToast(`Role "${roleName}" ${action}d successfully`, "success");
         if (showLogs) fetchAuditLogs();
       } else {
         const errorData = await response.json();
-        showToast(errorData.error || "Failed to delete role", "error");
+        showToast(errorData.error || `Failed to ${action} role`, "error");
       }
     } catch (error) {
-      console.error("Error deleting role:", error);
+      console.error("Error updating role status:", error);
       showToast("Network error. Please try again.", "error");
     }
   };
@@ -287,7 +266,7 @@ export default function UserManagement({ user, onLogout }) {
       
       if (response.ok) {
         await fetchUsers();
-        showToast(`User ${!currentStatus ? 'activated' : 'deactivated'} successfully`, "success");
+        showToast(`User ${!currentStatus ? 'activated' : 'archived'} successfully`, "success");
         if (showLogs) fetchAuditLogs();
       } else {
         const errorData = await response.json();
@@ -521,6 +500,7 @@ export default function UserManagement({ user, onLogout }) {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Users</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
@@ -537,6 +517,12 @@ export default function UserManagement({ user, onLogout }) {
                           <td className="px-6 py-4 text-sm text-gray-500">{role.description || '-'}</td>
                           <td className="px-6 py-4 text-sm text-gray-500">{userCount}</td>
                           <td className="px-6 py-4 text-sm">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${role.is_active !== false ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                              {role.is_active !== false ? <CheckCircle className="h-3 w-3" /> : <Archive className="h-3 w-3" />}
+                              {role.is_active !== false ? 'Active' : 'Archived'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-sm">
                             <button
                               onClick={() => {
                                 setEditingRole(role);
@@ -547,23 +533,20 @@ export default function UserManagement({ user, onLogout }) {
                               <Pencil className="w-5 h-5" />
                             </button>
                             <button
-                              onClick={() => handleDeleteRole(role.id, role.name)}
-                              className="text-red-600 hover:text-red-800 transition"
-                              disabled={userCount > 0}
-                              title={userCount > 0 ? `Cannot delete - ${userCount} users have this role` : ''}
+                              onClick={() => handleToggleRoleActive(role.id, role.name, role.is_active !== false)}
+                              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${role.is_active !== false ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                              title={role.is_active !== false ? 'Archive role' : 'Activate role'}
                             >
-                              <Trash2 className={`w-5 h-5 ${userCount > 0 ? 'opacity-40 cursor-not-allowed' : ''}`} />
+                              {role.is_active !== false ? <Archive className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
+                              {role.is_active !== false ? 'Archive' : 'Activate'}
                             </button>
-                            {userCount > 0 && (
-                              <span className="text-xs text-gray-400 ml-1">({userCount} users)</span>
-                            )}
                           </td>
                         </tr>
                       );
                     })
                   ) : (
                     <tr>
-                      <td colSpan="4" className="px-6 py-8 text-center text-gray-400">
+                      <td colSpan="5" className="px-6 py-8 text-center text-gray-400">
                         No roles found. Click "Add Role" to create one.
                       </td>
                     </tr>
@@ -639,15 +622,10 @@ export default function UserManagement({ user, onLogout }) {
                           {getHierarchyBadge(u)}
                         </td>
                         <td className="px-6 py-4 text-sm">
-                          <button
-                            onClick={() => handleToggleActive(u.id, u.is_active)}
-                            className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${
-                              u.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                            }`}
-                          >
-                            {u.is_active ? <CheckCircle className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
-                            {u.is_active ? 'Active' : 'Inactive'}
-                          </button>
+                          <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${u.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                            {u.is_active ? <CheckCircle className="h-3 w-3" /> : <Archive className="h-3 w-3" />}
+                            {u.is_active ? 'Active' : 'Archived'}
+                          </span>
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <button
@@ -660,10 +638,13 @@ export default function UserManagement({ user, onLogout }) {
                             <Pencil className="w-5 h-5" />
                           </button>
                           <button
-                            onClick={() => handleDeleteUser(u.id, u.username)}
-                            className="text-red-600 hover:text-red-800 transition"
+                            onClick={() => handleToggleActive(u.id, u.is_active)}
+                            disabled={u.id === user.id}
+                            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${u.id === user.id ? 'cursor-not-allowed bg-gray-100 text-gray-400' : u.is_active ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-green-50 text-green-700 hover:bg-green-100'}`}
+                            title={u.id === user.id ? 'You cannot archive your own account' : u.is_active ? 'Archive user' : 'Activate user'}
                           >
-                            <Trash2 className="w-5 h-5" />
+                            {u.is_active ? <Archive className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}
+                            {u.is_active ? 'Archive' : 'Activate'}
                           </button>
                         </td>
                       </tr>
@@ -822,7 +803,7 @@ export default function UserManagement({ user, onLogout }) {
                       <td className="px-6 py-4 text-sm">
                         <span className={`px-2 py-1 text-xs rounded-full ${
                           log.action === 'CREATE' ? 'bg-green-100 text-green-700' :
-                          log.action === 'UPDATE' ? 'bg-blue-100 text-blue-700' :
+                          log.action === 'UPDATE' ? 'bg-green-100 text-green-700' :
                           log.action === 'DELETE' ? 'bg-red-100 text-red-700' :
                           'bg-gray-100 text-gray-700'
                         }`}>
@@ -1117,7 +1098,7 @@ function AssignHierarchyModal({ isOpen, onClose, onAssign, user, targetUser, hie
               <option value="none">None (Standard User)</option>
             </select>
             {hierarchyLevels.length === 0 && (
-              <p className="text-xs text-yellow-600 mt-1">No hierarchy levels available for your scope</p>
+              <p className="text-xs text-green-600 mt-1">No hierarchy levels available for your scope</p>
             )}
           </div>
 

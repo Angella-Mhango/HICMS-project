@@ -21,6 +21,7 @@ urlpatterns = [
     path('chart-data/filtered/', views.chart_data, name='chart-data-filtered'),
     path('compliance-trends/', views.compliance_trends, name='compliance-trends'),
     path('compliance-trends/filtered/', views.compliance_trends, name='compliance-trends-filtered'),
+    path('standards-performance/filtered/', views.standards_performance, name='standards-performance-filtered'),
     path('summary/filtered/', views.summary_stats, name='summary-stats-filtered'),
     path('alerts/', views.alerts_api, name='alerts-api'),
     
@@ -41,6 +42,8 @@ urlpatterns = [
     path('submit-inspection/', views.submit_inspection_with_checklist, name='submit-inspection'),
     path('submit-standards/', views.submit_standard_inspection, name='submit-standards'),
     path('corrective-actions/', views.corrective_actions, name='corrective-actions'),
+    path('corrective-actions/<int:action_id>/', views.corrective_action_detail, name='corrective-action-detail'),
+    path('corrective-actions/<int:action_id>/comments/', views.corrective_action_comments, name='corrective-action-comments'),
     
     # Future inspection planning endpoints
     path('schedules/options/', views.schedule_options, name='schedule-options'),

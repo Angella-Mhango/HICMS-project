@@ -405,6 +405,7 @@ def submit_standard_inspection(request):
         )
         total_score = 0
         max_possible = 0
+        standard_totals = {}
         
         for resp_data in data['responses']:
             requirement = Requirement.objects.get(
@@ -415,9 +416,22 @@ def submit_standard_inspection(request):
             possible_score = int(resp_data.get('max_score_possible') or requirement.max_score or 0)
             total_score += int(resp_data['score'])
             max_possible += possible_score
+            standard = requirement.standard
+            standard_total = standard_totals.setdefault(standard.id, {
+                'id': standard.id,
+                'code': standard.code,
+                'name': standard.name,
+                'score': 0,
+                'possible': 0,
+            })
+            standard_total['score'] += int(resp_data['score'])
+            standard_total['possible'] += possible_score
         
         percentage_score = int((total_score / max_possible) * 100) if max_possible > 0 else 0
         inspection.score = percentage_score
+        # Keep a durable, per-inspection standards snapshot in an existing column.
+        # This avoids blocking inspection submission on an unapplied schema migration.
+        inspection.notes = f"{notes}\nSTANDARD_PERFORMANCE={json.dumps(list(standard_totals.values()))}".strip()
         inspection.save()
         
         return JsonResponse({

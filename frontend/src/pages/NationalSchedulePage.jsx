@@ -191,7 +191,7 @@ export default function NationalSchedulePage({ user, onLogout }) {
 
         {error && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
-            <AlertCircle className="w-10 h-10 text-yellow-500 mx-auto mb-3" />
+            <AlertCircle className="w-10 h-10 text-green-500 mx-auto mb-3" />
             <p className="text-gray-700 font-medium">{error}</p>
           </div>
         )}

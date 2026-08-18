@@ -388,7 +388,7 @@ const MCMInspection = () => {
                                         </span>
                                         <span className={`text-lg font-bold ${
                                             calculateScore() >= 80 ? 'text-green-600' : 
-                                            calculateScore() >= 60 ? 'text-yellow-600' : 'text-red-600'
+                                            calculateScore() >= 60 ? 'text-green-600' : 'text-red-600'
                                         }`}>
                                             {calculateScore()}%
                                         </span>
@@ -397,7 +397,7 @@ const MCMInspection = () => {
                                         <div
                                             className={`h-2 rounded-full transition-all ${
                                                 calculateScore() >= 80 ? 'bg-green-600' : 
-                                                calculateScore() >= 60 ? 'bg-yellow-600' : 'bg-red-600'
+                                                calculateScore() >= 60 ? 'bg-green-600' : 'bg-red-600'
                                             }`}
                                             style={{ width: `${calculateScore()}%` }}
                                         ></div>

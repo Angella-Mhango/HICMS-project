@@ -47,7 +47,7 @@ export default function Footer() {
             <span>Version 2.0.0</span>
             <span className="text-gray-300">|</span>
             <span className="flex items-center gap-1.5">
-              <Building2 className="w-3 h-3 text-blue-500" />
+              <Building2 className="w-3 h-3 text-green-500" />
               <span>Hospital Inspection &</span>
               <ClipboardCheck className="w-3 h-3 text-green-500" />
               <span>Compliance Monitoring System</span>

@@ -153,6 +153,49 @@ class InspectionAnswer(models.Model):
     def __str__(self):
         return f"{self.inspection} - {self.checklist_item.item_code}: {self.get_result_display()}"
 
+
+class StandardResponse(models.Model):
+    """A scored standards requirement captured as part of an inspection."""
+    inspection = models.ForeignKey(Inspection, on_delete=models.CASCADE, related_name='standard_responses')
+    requirement = models.ForeignKey('standards.Requirement', on_delete=models.PROTECT, related_name='inspection_responses')
+    score = models.IntegerField(default=0)
+    max_score_possible = models.IntegerField(default=0)
+
+    class Meta:
+        unique_together = ['inspection', 'requirement']
+
+    def __str__(self):
+        return f"{self.inspection} - {self.requirement}: {self.score}/{self.max_score_possible}"
+
+
+class CorrectiveAction(models.Model):
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('In Progress', 'In Progress'),
+        ('Completed', 'Completed'),
+    ]
+
+    inspection = models.OneToOneField(Inspection, on_delete=models.CASCADE, related_name='corrective_action')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
+    deadline = models.DateField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'inspections_correctiveactionrecord'
+
+    def __str__(self):
+        return f"Corrective action for inspection {self.inspection_id}"
+
+
+class CorrectiveActionComment(models.Model):
+    corrective_action = models.ForeignKey(CorrectiveAction, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at', 'id']
+
 
 
 class InspectionPlan(models.Model):

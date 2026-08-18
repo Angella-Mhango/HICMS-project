@@ -233,10 +233,10 @@ def user_list_create(request):
                 is_active=data.get("is_active", True)
             )
 
-            role = Role.objects.filter(id=data.get("role_id")).first() if data.get("role_id") else None
+            role = Role.objects.filter(id=data.get("role_id"), is_active=True).first() if data.get("role_id") else None
             role_name = data.get("role", "inspector")
             if not role:
-                role = Role.objects.filter(name__iexact=role_name).first()
+                role = Role.objects.filter(name__iexact=role_name, is_active=True).first()
 
             if not role:
                 return JsonResponse({"error": f"Role '{role_name}' does not exist"}, status=400)
@@ -298,7 +298,7 @@ def user_detail(request, user_id):
 
             role = None
             if data.get("role_id"):
-                role = Role.objects.get(id=data["role_id"])
+                role = Role.objects.get(id=data["role_id"], is_active=True)
             elif data.get("role"):
                 role = Role.objects.get(name=data["role"])
             if role:
@@ -342,7 +342,7 @@ def user_detail(request, user_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def user_roles(request):
-    roles = Role.objects.all().values('id', 'name', 'description', 'permissions')
+    roles = Role.objects.all().values('id', 'name', 'description', 'permissions', 'is_active')
     return JsonResponse(list(roles), safe=False)
 
 
@@ -361,6 +361,7 @@ def create_role(request):
             name=name,
             description=data.get("description", ""),
             permissions=data.get("permissions", []),
+            is_active=data.get("is_active", True),
         )
         return JsonResponse({
             "success": True,
@@ -371,7 +372,7 @@ def create_role(request):
         return JsonResponse({"error": str(e)}, status=400)
 
 
-@api_view(['PUT', 'DELETE'])
+@api_view(['PUT', 'PATCH', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def role_detail(request, role_id):
     if _scope_for_user(request.user)["level"] != "national":
@@ -379,12 +380,13 @@ def role_detail(request, role_id):
 
     role = get_object_or_404(Role, id=role_id)
 
-    if request.method == 'PUT':
+    if request.method in {'PUT', 'PATCH'}:
         try:
             data = json.loads(request.body)
             role.name = data.get("name", role.name)
             role.description = data.get("description", role.description)
             role.permissions = data.get("permissions", role.permissions)
+            role.is_active = data.get("is_active", role.is_active)
             role.save()
             return JsonResponse({"success": True, "message": "Role updated successfully"})
         except Exception as e:
@@ -409,7 +411,7 @@ def assign_role(request, user_id):
 
     try:
         data = json.loads(request.body)
-        role = get_object_or_404(Role, id=data.get("role_id"))
+        role = get_object_or_404(Role, id=data.get("role_id"), is_active=True)
         user_role, _ = UserRole.objects.get_or_create(user=target_user, defaults={"role": role})
         user_role.role = role
         user_role.save()

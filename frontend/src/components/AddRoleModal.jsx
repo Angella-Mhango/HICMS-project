@@ -4,8 +4,10 @@ import {
   LayoutDashboard, ClipboardList, CheckSquare, Building2, FileText,
   ClipboardCheck, Users, Bell, Settings
 } from "lucide-react";
+import useModalExperience from "./useModalExperience";
 
 export default function AddRoleModal({ isOpen, onClose, onSuccess, user, editingRole }) {
+  useModalExperience(isOpen, onClose);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -286,10 +288,9 @@ export default function AddRoleModal({ isOpen, onClose, onSuccess, user, editing
 
   return (
     <div 
-      className="fixed inset-0 flex items-center justify-center z-50 p-4"
-      style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)' }}
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm"
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <div role="dialog" aria-modal="true" aria-label={editingRole ? "Edit role" : "Add role"} className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
         
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-green-600 to-green-700 px-6 py-4 rounded-t-2xl z-10">
@@ -387,7 +388,7 @@ export default function AddRoleModal({ isOpen, onClose, onSuccess, user, editing
                           {/* Group Header */}
                           <div 
                             className={`flex items-center justify-between px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition ${
-                              groupSelected ? 'bg-green-50' : groupPartial ? 'bg-yellow-50' : ''
+                              groupSelected ? 'bg-green-50' : groupPartial ? 'bg-green-50' : ''
                             }`}
                             onClick={() => toggleGroup(groupName)}
                           >
@@ -401,7 +402,7 @@ export default function AddRoleModal({ isOpen, onClose, onSuccess, user, editing
                               </button>
                               {IconComponent && (
                                 <IconComponent className={`w-4 h-4 flex-shrink-0 ${
-                                  groupSelected ? 'text-green-600' : groupPartial ? 'text-yellow-600' : 'text-gray-400'
+                                  groupSelected ? 'text-green-600' : groupPartial ? 'text-green-600' : 'text-gray-400'
                                 }`} />
                               )}
                               <div className="min-w-0">
@@ -424,7 +425,7 @@ export default function AddRoleModal({ isOpen, onClose, onSuccess, user, editing
                                 groupSelected
                                   ? 'bg-green-100 text-green-700 hover:bg-green-200'
                                   : groupPartial
-                                  ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
                                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                               }`}
                             >
@@ -498,11 +499,11 @@ export default function AddRoleModal({ isOpen, onClose, onSuccess, user, editing
             </div>
 
             {/* Role Suggestion */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <p className="text-xs text-blue-700">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+              <p className="text-xs text-green-700">
                 <strong>💡 Suggested Role Permissions:</strong>
               </p>
-              <div className="grid grid-cols-2 gap-1 mt-1 text-xs text-blue-600">
+              <div className="grid grid-cols-2 gap-1 mt-1 text-xs text-green-600">
                 <div><span className="font-medium">Inspector:</span> Dashboard, Inspections, Standards</div>
                 <div><span className="font-medium">Supervisor:</span> Inspector + Compliance + Reports</div>
                 <div><span className="font-medium">Hospital Admin:</span> Dashboard, Compliance, Reports</div>
