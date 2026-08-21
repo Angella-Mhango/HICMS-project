@@ -44,7 +44,6 @@ export default function InspectorDashboard({ user, onLogout }) {
     setLoading(true);
     setError(null);
     try {
-      console.log("📡 Fetching inspections for user:", user.username);
       
       // Fetch inspections - try both endpoints
       let inspectionsData = [];
@@ -54,12 +53,9 @@ export default function InspectorDashboard({ user, onLogout }) {
         });
         if (inspectionsRes.ok) {
           inspectionsData = await inspectionsRes.json();
-          console.log("✅ Inspections loaded:", inspectionsData.length);
-        } else {
-          console.log("⚠️ Inspections API returned:", inspectionsRes.status);
         }
-      } catch (e) {
-        console.log("⚠️ Error fetching inspections:", e.message);
+      } catch {
+        // Keep the empty inspection list when this optional request is unavailable.
       }
       
       // Ensure inspectionsData is an array
@@ -77,12 +73,9 @@ export default function InspectorDashboard({ user, onLogout }) {
         });
         if (statsRes.ok) {
           statsData = await statsRes.json();
-          console.log("✅ Stats loaded");
-        } else {
-          console.log("⚠️ Stats API returned:", statsRes.status);
         }
-      } catch (e) {
-        console.log("⚠️ Error fetching stats:", e.message);
+      } catch {
+        // Keep the empty stats object when this optional request is unavailable.
       }
       setStats(statsData);
 
@@ -94,12 +87,9 @@ export default function InspectorDashboard({ user, onLogout }) {
         });
         if (actionsRes.ok) {
           actionsData = await actionsRes.json();
-          console.log("✅ Actions loaded:", actionsData.length);
-        } else {
-          console.log("⚠️ Actions API returned:", actionsRes.status);
         }
-      } catch (e) {
-        console.log("⚠️ Error fetching actions:", e.message);
+      } catch {
+        // Keep the empty action list when this optional request is unavailable.
       }
       
       if (Array.isArray(actionsData)) {
@@ -119,7 +109,6 @@ export default function InspectorDashboard({ user, onLogout }) {
   };
 
   useEffect(() => {
-    console.log("🔍 InspectorDashboard mounted, user:", user);
     fetchData();
   }, [user]);
 

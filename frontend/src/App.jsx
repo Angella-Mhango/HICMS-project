@@ -20,7 +20,6 @@ import GanttChartPage from "./pages/GanttChartPage";
 import ToastContainer from "./components/ToastContainer";
 
 // New Facility QA Pages
-import FacilityQADashboard from "./pages/FacilityQADashboard";
 import InspectionPlanningPage from "./pages/InspectionPlanningPage";
 import NationalSchedulePage from "./pages/NationalSchedulePage";
 import PreInspectionPage from "./pages/PreInspectionPage";
@@ -46,7 +45,6 @@ function App() {
 
   // Normalize role for comparison
   const role = user.role?.toLowerCase() || '';
-  console.log("🔍 User role in App:", role);
 
   // Get the appropriate dashboard route based on role
   const getDashboardRoute = () => {
@@ -140,9 +138,9 @@ function App() {
         {/* FACILITY QA ROUTES */}
         {isFacilityQA && (
           <>
-            <Route path="/" element={<FacilityQADashboard user={user} onLogout={handleLogout} />} />
-            <Route path="/dashboard" element={<FacilityQADashboard user={user} onLogout={handleLogout} />} />
-            <Route path="/qa-dashboard" element={<FacilityQADashboard user={user} onLogout={handleLogout} />} />
+            <Route path="/" element={<AdminDashboard user={user} onLogout={handleLogout} />} />
+            <Route path="/dashboard" element={<AdminDashboard user={user} onLogout={handleLogout} />} />
+            <Route path="/qa-dashboard" element={<AdminDashboard user={user} onLogout={handleLogout} />} />
             <Route path="/inspection-planning" element={<InspectionPlanningPage user={user} onLogout={handleLogout} />} />
             <Route path="/pre-inspection" element={<PreInspectionPage user={user} onLogout={handleLogout} />} />
             <Route path="/inspection-reports" element={<ReportsPage user={user} onLogout={handleLogout} />} />

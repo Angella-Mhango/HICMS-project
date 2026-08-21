@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import { showToast } from "../components/Toast";
+import useModalExperience from "../components/useModalExperience";
 import {
   Calendar,
   Plus,
@@ -38,6 +39,12 @@ export default function InspectionPlanningPage({ user, onLogout }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [expandedPlans, setExpandedPlans] = useState({});
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  useModalExperience(showCreateModal, () => {
+    setShowCreateModal(false);
+    setEditingPlan(null);
+  });
 
   useEffect(() => {
     fetchFacilityInfo();
@@ -70,16 +77,12 @@ export default function InspectionPlanningPage({ user, onLogout }) {
         }
       }
       
-      setFacilityInfo({
-        facility: { id: 1, name: "Kamuzu Central Hospital" },
-        level: "facility"
-      });
+      setError("Your QA account is not assigned to a facility. Ask an administrator to assign your facility.");
+      setLoading(false);
     } catch (error) {
       console.error("Error fetching facility info:", error);
-      setFacilityInfo({
-        facility: { id: 1, name: "Your Facility" },
-        level: "facility"
-      });
+      setError("Unable to load your assigned facility.");
+      setLoading(false);
     }
   };
 
@@ -101,7 +104,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
   const fetchPlans = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:8000/inspections/facility/${facilityInfo?.facility?.id || 1}/plans/`, {
+      const response = await fetch(`http://127.0.0.1:8000/inspections/facility/${facilityInfo.facility.id}/plans/`, {
         headers: { "Authorization": `Token ${user.token}` }
       });
       
@@ -112,30 +115,9 @@ export default function InspectionPlanningPage({ user, onLogout }) {
         return;
       }
       
-      setPlans([
-        {
-          id: 1,
-          title: "Q2 2026 Preparation Plan",
-          description: "Internal preparation for Q2 inspections",
-          departments: ["OPD", "Emergency", "Maternity"],
-          preparation_date: "2026-06-15",
-          focal_person: "Dr. Jane Mwale",
-          status: "active",
-          progress: 65,
-          created_at: "2026-05-01"
-        },
-        {
-          id: 2,
-          title: "Pharmacy Readiness Assessment",
-          description: "Pre-inspection preparation for pharmacy department",
-          departments: ["Pharmacy"],
-          preparation_date: "2026-06-20",
-          focal_person: "Mr. Peter Banda",
-          status: "draft",
-          progress: 20,
-          created_at: "2026-05-15"
-        }
-      ]);
+      const data = await response.json().catch(() => ({}));
+      setError(data.error || "Failed to load inspection plans.");
+      setPlans([]);
     } catch (error) {
       console.error("Error fetching plans:", error);
       showToast("Failed to load plans", "error");
@@ -160,6 +142,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
       return;
     }
 
+    setSaving(true);
     try {
       const response = await fetch("http://127.0.0.1:8000/inspections/facility/plans/create/", {
         method: "POST",
@@ -169,7 +152,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
         },
         body: JSON.stringify({
           ...formData,
-          facility_id: facilityInfo?.facility?.id || 1
+          facility_id: facilityInfo.facility.id
         })
       });
 
@@ -187,6 +170,8 @@ export default function InspectionPlanningPage({ user, onLogout }) {
     } catch (error) {
       console.error("Error creating plan:", error);
       showToast("Network error", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -194,6 +179,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
     e.preventDefault();
     if (!editingPlan?.id) return;
 
+    setSaving(true);
     try {
       const response = await fetch(`http://127.0.0.1:8000/inspections/facility/plans/${editingPlan.id}/`, {
         method: "PUT",
@@ -219,6 +205,8 @@ export default function InspectionPlanningPage({ user, onLogout }) {
     } catch (error) {
       console.error("Error updating plan:", error);
       showToast("Network error", "error");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -242,6 +230,22 @@ export default function InspectionPlanningPage({ user, onLogout }) {
     }
   };
 
+  const handleSubmitPlan = async (plan) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/inspections/facility/plans/${plan.id}/`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "Authorization": `Token ${user.token}` },
+        body: JSON.stringify({ status: "submitted" })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Failed to submit plan");
+      showToast("Plan submitted successfully", "success");
+      fetchPlans();
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       title: "",
@@ -251,6 +255,12 @@ export default function InspectionPlanningPage({ user, onLogout }) {
       focal_person: "",
       status: "draft"
     });
+  };
+
+  const closeModal = () => {
+    setShowCreateModal(false);
+    setEditingPlan(null);
+    resetForm();
   };
 
   const toggleDepartment = (deptId) => {
@@ -287,7 +297,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
   };
 
   const filteredPlans = plans.filter(plan => {
-    const matchesSearch = plan.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (plan.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
                           plan.focal_person?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === "all" || plan.status === filterStatus;
     return matchesSearch && matchesStatus;
@@ -298,6 +308,18 @@ export default function InspectionPlanningPage({ user, onLogout }) {
       <Layout user={user} onLogout={onLogout}>
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error && !facilityInfo) {
+    return (
+      <Layout user={user} onLogout={onLogout}>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
+          <AlertCircle className="mx-auto h-10 w-10 text-red-500" />
+          <h2 className="mt-3 text-lg font-semibold text-red-800">Facility assignment required</h2>
+          <p className="mt-1 text-sm text-red-700">{error}</p>
         </div>
       </Layout>
     );
@@ -489,16 +511,16 @@ export default function InspectionPlanningPage({ user, onLogout }) {
                       <Trash2 className="w-4 h-4" />
                       Delete
                     </button>
-                    <button
+                    {plan.status !== "submitted" && plan.status !== "completed" && <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        showToast("Plan submitted successfully!", "success");
+                        handleSubmitPlan(plan);
                       }}
                       className="px-3 py-1 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center gap-1"
                     >
                       <CheckCircle className="w-4 h-4" />
                       Submit
-                    </button>
+                    </button>}
                   </div>
                 </div>
               )}
@@ -509,10 +531,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
 
       {/* Create/Edit Modal */}
       {showCreateModal && (
-        <div 
-          className="fixed inset-0 flex items-center justify-center z-50 p-4"
-          style={{ background: 'rgba(0, 0, 0, 0.5)', backdropFilter: 'blur(8px)' }}
-        >
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/50 p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-gradient-to-r from-green-600 to-green-800 px-6 py-4 rounded-t-2xl">
               <div className="flex justify-between items-center">
@@ -526,11 +545,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
                   </p>
                 </div>
                 <button 
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setEditingPlan(null);
-                    resetForm();
-                  }}
+                  onClick={closeModal}
                   className="text-white hover:text-gray-200 transition"
                 >
                   <X className="w-6 h-6" />
@@ -639,21 +654,18 @@ export default function InspectionPlanningPage({ user, onLogout }) {
               <div className="flex gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setEditingPlan(null);
-                    resetForm();
-                  }}
+                  onClick={closeModal}
                   className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Plus className="w-4 h-4" />
-                  {editingPlan ? "Update Plan" : "Create Plan"}
+                  {saving ? "Saving..." : editingPlan ? "Update Plan" : "Create Plan"}
                 </button>
               </div>
             </form>

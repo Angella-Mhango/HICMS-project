@@ -357,10 +357,9 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
       ...prev,
       [reqId]: {
         ...prev[reqId],
-        criteria_scores: {
-          ...prev[reqId].criteria_scores,
-          [criterionName]: !prev[reqId].criteria_scores[criterionName]
-        }
+        criteria_scores: Object.fromEntries(
+          Object.keys(prev[reqId].criteria_scores).map(name => [name, name === criterionName])
+        )
       }
     }));
   };
@@ -402,9 +401,8 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
     if (!answer) return 0;
     const requirement = getRequirementById(reqId);
     const criteriaItems = getCriteriaItems(requirement);
-    return criteriaItems.reduce((score, criterion) => {
-      return score + (answer.criteria_scores[criterion.name] ? (Number(criterion.points) || 1) : 0);
-    }, 0);
+    const selected = criteriaItems.find(criterion => answer.criteria_scores[criterion.name]);
+    return selected ? Math.round(Number(selected.points ?? 0)) : 0;
   };
 
   const getRequirementPossibleScore = (reqId) => {
@@ -412,7 +410,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
     if (!requirement) return 0;
     const criteriaItems = getCriteriaItems(requirement);
     if (criteriaItems.length > 0) {
-      return criteriaItems.reduce((total, criterion) => total + (Number(criterion.points) || 1), 0);
+      return Math.round(Math.max(...criteriaItems.map(criterion => Number(criterion.points ?? 0))));
     }
     return Number(requirement.max_score) || 0;
   };
@@ -435,7 +433,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
     const criteria = getCriteriaItems(requirement);
     if (criteria.length === 0) return false;
     const checkedCount = Object.values(answer.criteria_scores).filter(v => v).length;
-    return checkedCount === criteria.length;
+    return checkedCount === 1;
   };
 
   const isRequirementPartial = (reqId) => {
@@ -446,7 +444,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
     if (!requirement) return false;
     const criteria = getCriteriaItems(requirement);
     if (criteria.length === 0) return false;
-    return checkedCount > 0 && checkedCount < criteria.length;
+    return checkedCount > 1;
   };
 
   const getTotalRequirements = () => {
@@ -817,7 +815,8 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
                       isChecked ? 'bg-green-50 border border-green-200' : 'hover:bg-gray-50 border border-transparent'
                     }`}>
                       <input
-                        type="checkbox"
+                        type="radio"
+                        name={`pre-inspection-requirement-${currentReq.id}`}
                         checked={isChecked}
                         onChange={() => handleCriterionToggle(currentReq.id, criterion.name)}
                         className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
@@ -972,7 +971,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-10 h-10 text-green-600" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-800 mb-2">Pre-Inspection Submitted! 🎉</h3>
+            <h3 className="text-2xl font-bold text-gray-800 mb-2">Pre-Inspection Submitted</h3>
             <p className="text-gray-600 mb-4">
               Your pre-inspection has been saved successfully.
             </p>

@@ -50,6 +50,35 @@ def normalize_criteria(criteria, max_score=5):
     return criteria_data
 
 
+def calculate_requirement_result(requirement, response):
+    """Calculate one single-choice requirement result from its configured scale."""
+    items = normalize_criteria(requirement.criteria, requirement.max_score)['items']
+    if items:
+        points_by_name = {
+            item['name']: float(item['points']) if item.get('points') is not None else 0
+            for item in items
+        }
+        possible = round(max(points_by_name.values(), default=0))
+        selections = response.get('criteria_scores') or {}
+        selected = [name for name, checked in selections.items() if checked and name in points_by_name]
+        if selections:
+            if len(selected) != 1:
+                raise ValueError(f"Requirement {requirement.id} must have exactly one selected criterion")
+            score = round(points_by_name[selected[0]])
+        else:
+            # Compatibility for older clients; never trust their maximum score.
+            score = int(response.get('score') or 0)
+    else:
+        possible = int(requirement.max_score or 0)
+        score = int(response.get('score') or 0)
+
+    if possible <= 0:
+        raise ValueError(f"Requirement {requirement.id} has no possible score configured")
+    if score < 0 or score > possible:
+        raise ValueError(f"Score for requirement {requirement.id} must be between 0 and {possible}")
+    return score, possible
+
+
 
 def _norm(value):
     return ''.join(ch for ch in (value or '').lower() if ch.isalnum())
@@ -358,17 +387,11 @@ def submit_standard_inspection(request):
                     is_active=True,
                     standard__is_active=True,
                 )
-                possible_score = int(resp.get('max_score_possible') or requirement.max_score or 0)
-                if possible_score <= 0:
-                    return JsonResponse({
-                        "error": f"Requirement {requirement.id} has no possible score configured"
-                    }, status=400)
-                if resp['score'] < 0 or resp['score'] > possible_score:
-                    return JsonResponse({
-                        "error": f"Score for requirement {requirement.id} must be between 0 and {possible_score}"
-                    }, status=400)
+                calculate_requirement_result(requirement, resp)
             except Requirement.DoesNotExist:
                 return JsonResponse({"error": f"Requirement {resp['requirement_id']} is archived or not found"}, status=400)
+            except ValueError as exc:
+                return JsonResponse({"error": str(exc)}, status=400)
         
         from facilities.models import Department as FacilityDepartment, Facility
         facility = None
@@ -413,8 +436,8 @@ def submit_standard_inspection(request):
                 is_active=True,
                 standard__is_active=True,
             )
-            possible_score = int(resp_data.get('max_score_possible') or requirement.max_score or 0)
-            total_score += int(resp_data['score'])
+            response_score, possible_score = calculate_requirement_result(requirement, resp_data)
+            total_score += response_score
             max_possible += possible_score
             standard = requirement.standard
             standard_total = standard_totals.setdefault(standard.id, {
@@ -424,10 +447,10 @@ def submit_standard_inspection(request):
                 'score': 0,
                 'possible': 0,
             })
-            standard_total['score'] += int(resp_data['score'])
+            standard_total['score'] += response_score
             standard_total['possible'] += possible_score
         
-        percentage_score = int((total_score / max_possible) * 100) if max_possible > 0 else 0
+        percentage_score = round((total_score / max_possible) * 100) if max_possible > 0 else 0
         inspection.score = percentage_score
         # Keep a durable, per-inspection standards snapshot in an existing column.
         # This avoids blocking inspection submission on an unapplied schema migration.

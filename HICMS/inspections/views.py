@@ -25,6 +25,18 @@ def official_inspections():
     return Inspection.objects.exclude(notes__startswith='PRE_INSPECTION')
 
 
+def _apply_user_location_scope(queryset, user):
+    """Enforce location scope for roles that must never access another facility."""
+    try:
+        user_role = user.userrole
+        role = user_role.role.name.lower()
+        if role == 'facility_qa':
+            return queryset.filter(facility_id=user_role.facility_id) if user_role.facility_id else queryset.none()
+    except Exception:
+        pass
+    return queryset
+
+
 
 def _schedule_meta(schedule):
     try:
@@ -69,6 +81,7 @@ def _serialize_schedule(schedule):
         'district': schedule.facility.district.name if schedule.facility.district else None,
         'region': schedule.facility.region.name if schedule.facility.region else None,
         'scheduled_date': schedule.scheduled_date.isoformat(),
+        'actual_date': schedule.actual_date.isoformat() if schedule.actual_date else None,
         'end_date': schedule.deadline.isoformat() if schedule.deadline else schedule.scheduled_date.isoformat(),
         'deadline': schedule.deadline.isoformat() if schedule.deadline else None,
         'assigned_inspector_id': schedule.assigned_inspector_id,
@@ -94,7 +107,7 @@ def submit_standard_inspection(request):
 def dashboard_stats(request):
     """Get dashboard statistics with filtering by admin level"""
     try:
-        queryset = official_inspections()
+        queryset = _apply_user_location_scope(official_inspections(), request.user)
         
         # Apply admin-level filtering
         admin_level = request.GET.get('level')
@@ -141,8 +154,10 @@ def dashboard_stats(request):
             if latest:
                 latest_inspection_ids.append(latest.id)
         facility_results = queryset.filter(id__in=latest_inspection_ids)
-        compliant = facility_results.filter(status='Compliant').count()
-        non_compliant = facility_results.filter(status='Non-compliant').count()
+        compliant = facility_results.filter(score__gte=F('benchmark')).count()
+        non_compliant = facility_results.filter(score__lt=F('benchmark')).count()
+        compliant_inspections = queryset.filter(score__gte=F('benchmark')).count()
+        non_compliant_inspections = queryset.filter(score__lt=F('benchmark')).count()
         avg_score = queryset.aggregate(avg=Avg('score'))['avg'] or 0
         
         compliance_rate = round((compliant / facility_results.count() * 100), 1) if facility_results.exists() else 0
@@ -154,6 +169,9 @@ def dashboard_stats(request):
             'non_compliant_facilities': non_compliant,
             'compliant': compliant,
             'non_compliant': non_compliant,
+            'compliant_inspections': compliant_inspections,
+            'non_compliant_inspections': non_compliant_inspections,
+            'inspection_compliance_rate': round((compliant_inspections / total * 100), 1) if total else 0,
             'compliance_rate': compliance_rate,
             'average_score': round(avg_score, 1)
         })
@@ -163,7 +181,9 @@ def dashboard_stats(request):
 
 
 def _filtered_official_inspections(request):
-    queryset = official_inspections().select_related('facility', 'facility__district', 'facility__region', 'department')
+    queryset = _apply_user_location_scope(
+        official_inspections(), request.user
+    ).select_related('facility', 'facility__district', 'facility__region', 'department')
 
     admin_level = request.GET.get('level')
     admin_id = request.GET.get('id')
@@ -371,9 +391,17 @@ def standards_performance(request):
                     'standard_name': standard.get('name') or standard.get('code') or 'Standard',
                     'score': 0,
                     'possible': 0,
+                    'met': 0,
+                    'not_met': 0,
                 })
-                item['score'] += int(standard.get('score') or 0)
-                item['possible'] += int(standard.get('possible') or 0)
+                score = int(standard.get('score') or 0)
+                possible = int(standard.get('possible') or 0)
+                item['score'] += score
+                item['possible'] += possible
+                if possible and (score / possible) * 100 >= 80:
+                    item['met'] += 1
+                else:
+                    item['not_met'] += 1
 
         data = []
         for item in grouped.values():
@@ -383,6 +411,8 @@ def standards_performance(request):
                 'standard_name': item['standard_name'],
                 'performance': performance,
                 'status': 'Met' if performance >= 80 else 'Not met',
+                'met': item['met'],
+                'not_met': item['not_met'],
             })
         data.sort(key=lambda item: item['performance'], reverse=True)
         return JsonResponse(data, safe=False)
@@ -397,6 +427,12 @@ def summary_stats(request):
     try:
         facilities = Facility.objects.all()
         inspections = _apply_dashboard_date_filter(_filtered_official_inspections(request), request)
+
+        try:
+            if request.user.userrole.role.name.lower() == 'facility_qa':
+                facilities = facilities.filter(id=request.user.userrole.facility_id) if request.user.userrole.facility_id else facilities.none()
+        except Exception:
+            pass
 
         level = request.GET.get('level')
         level_id = request.GET.get('id')
@@ -521,17 +557,24 @@ def inspection_timeline(request):
 def gantt_chart_data(request):
     """Get future inspection schedules for the planning Gantt chart."""
     try:
+        from standards.models import Standard
+
         schedules = (
             InspectionSchedule.objects
             .select_related('plan', 'facility', 'facility__district', 'facility__region', 'assigned_inspector')
-            .filter(status__in=['scheduled', 'rescheduled', 'in_progress'])
             .order_by('scheduled_date', 'facility__name')
         )
 
         today = datetime.now().date()
-        include_past = request.GET.get('include_past') == '1'
-        if not include_past:
-            schedules = schedules.filter(deadline__gte=today)
+        view_mode = request.GET.get('view', 'upcoming')
+        if view_mode == 'past':
+            schedules = schedules.filter(Q(status='completed') | Q(actual_date__isnull=False))
+        else:
+            view_mode = 'upcoming'
+            schedules = schedules.filter(
+                status__in=['scheduled', 'rescheduled', 'in_progress'],
+                deadline__gte=today,
+            )
 
         facility_map = {}
         schedule_rows = []
@@ -540,16 +583,16 @@ def gantt_chart_data(request):
 
         for schedule in schedules:
             item = _serialize_schedule(schedule)
-            start_date = schedule.scheduled_date
-            end_date = schedule.deadline or schedule.scheduled_date
+            start_date = schedule.actual_date if view_mode == 'past' and schedule.actual_date else schedule.scheduled_date
+            end_date = start_date if view_mode == 'past' else (schedule.deadline or schedule.scheduled_date)
             min_date = start_date if min_date is None or start_date < min_date else min_date
             max_date = end_date if max_date is None or end_date > max_date else max_date
 
             task = {
                 'id': item['id'],
                 'name': item['inspection_type_label'],
-                'start': item['scheduled_date'],
-                'end': item['end_date'],
+                'start': start_date.isoformat(),
+                'end': end_date.isoformat(),
                 'status': item['status'],
                 'assigned_to': item['assigned_inspector_name'],
                 'assigned_inspector_id': item['assigned_inspector_id'],
@@ -576,7 +619,11 @@ def gantt_chart_data(request):
             schedule_rows.append(item)
 
         plans = []
-        for plan in InspectionPlan.objects.order_by('-start_date'):
+        focus_standard_ids = set()
+        visible_plan_ids = set(schedule_rows_item['plan_id'] for schedule_rows_item in schedule_rows)
+        plan_queryset = InspectionPlan.objects.filter(id__in=visible_plan_ids).order_by('-start_date')
+        for plan in plan_queryset:
+            focus_standard_ids.update(plan.focus_standard_ids or [])
             plans.append({
                 'id': plan.id,
                 'title': plan.title,
@@ -597,16 +644,22 @@ def gantt_chart_data(request):
             min_date = today
             max_date = today + timedelta(days=90)
 
+        focus_areas = list(
+            Standard.objects.filter(id__in=focus_standard_ids, is_active=True)
+            .values('id', 'code', 'name')
+        )
+
         return JsonResponse({
             'facilities': list(facility_map.values()),
             'plans': plans,
             'schedules': schedule_rows,
-            'focus_areas': [],
+            'focus_areas': focus_areas,
             'timeline': {
                 'min_date': min_date.isoformat(),
                 'max_date': max_date.isoformat(),
                 'total_days': (max_date - min_date).days if min_date and max_date else 0,
             },
+            'view': view_mode,
         })
     except Exception as e:
         print(f"Error in gantt_chart_data: {e}")
@@ -719,14 +772,7 @@ def create_inspection_api(request):
 def chart_data(request):
     """Get inspection data grouped by month for charts"""
     try:
-        six_months_ago = datetime.now().date() - timedelta(days=180)
-        inspections = _filtered_official_inspections(request)
-        start_date = request.GET.get('start_date')
-        end_date = request.GET.get('end_date')
-        if start_date and end_date:
-            inspections = inspections.filter(date__gte=start_date, date__lte=end_date)
-        else:
-            inspections = inspections.filter(date__gte=six_months_ago)
+        inspections = _apply_dashboard_date_filter(_filtered_official_inspections(request), request)
         
         inspections_by_month = (
             inspections
@@ -734,8 +780,8 @@ def chart_data(request):
             .values('month')
             .annotate(
                 inspections=Count('id'),
-                compliant=Count('id', filter=Q(status='Compliant')),
-                non_compliant=Count('id', filter=Q(status='Non-compliant'))
+                compliant=Count('id', filter=Q(score__gte=F('benchmark'))),
+                non_compliant=Count('id', filter=Q(score__lt=F('benchmark')))
             )
             .order_by('month')
         )
@@ -1102,17 +1148,44 @@ def schedule_options(request):
     })
 
 
+def _validated_plan_ids(raw_ids, model, label, active_only=False):
+    """Normalize plan selection IDs and reject missing or inactive records."""
+    try:
+        ids = list(dict.fromkeys(int(value) for value in (raw_ids or [])))
+    except (TypeError, ValueError):
+        raise ValueError(f'Invalid {label} selection')
+
+    queryset = model.objects.filter(id__in=ids)
+    if active_only:
+        queryset = queryset.filter(is_active=True)
+    existing_ids = set(queryset.values_list('id', flat=True))
+    if len(existing_ids) != len(ids):
+        raise ValueError(f'One or more selected {label} are unavailable')
+    return ids
+
+
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_inspection_plan(request):
     try:
+        from standards.models import Standard
+
         data = json.loads(request.body or '{}')
-        facility_ids = data.get('facility_ids') or []
-        focus_standard_ids = data.get('focus_standard_ids') or []
-        if not data.get('title'):
+        facility_ids = _validated_plan_ids(data.get('facility_ids'), Facility, 'facilities')
+        focus_standard_ids = _validated_plan_ids(
+            data.get('focus_standard_ids'), Standard, 'focus standards', active_only=True
+        )
+        if not (data.get('title') or '').strip():
             return JsonResponse({'error': 'Plan title is required'}, status=400)
         if not facility_ids:
             return JsonResponse({'error': 'At least one facility is required'}, status=400)
+        if not focus_standard_ids:
+            return JsonResponse({'error': 'At least one focus standard is required'}, status=400)
+
+        start_date = datetime.strptime(data.get('start_date'), '%Y-%m-%d').date()
+        end_date = datetime.strptime(data.get('end_date'), '%Y-%m-%d').date()
+        if end_date < start_date:
+            return JsonResponse({'error': 'End date cannot be before the start date'}, status=400)
 
         plan = InspectionPlan.objects.create(
             title=data.get('title', '').strip(),
@@ -1132,8 +1205,6 @@ def create_inspection_plan(request):
 
         facilities = list(Facility.objects.filter(id__in=facility_ids).order_by('name'))
         inspectors = _inspector_users()
-        start_date = datetime.strptime(data.get('start_date'), '%Y-%m-%d').date()
-        end_date = datetime.strptime(data.get('end_date'), '%Y-%m-%d').date()
         span = max((end_date - start_date).days, 1)
         inspection_type = data.get('inspection_type') or 'ROUTINE'
 
@@ -1213,10 +1284,29 @@ def _serialize_facility_plan(plan):
     }
 
 
+def _facility_qa_scope_id(user):
+    try:
+        if user.userrole.role.name.lower() == 'facility_qa':
+            return user.userrole.facility_id or 0
+    except Exception:
+        pass
+    return None
+
+
+def _can_access_facility_plan(user, plan):
+    facility_id = _facility_qa_scope_id(user)
+    if facility_id is None:
+        return True
+    return facility_id in [int(value) for value in (plan.facility_ids or [])]
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def facility_plans(request, facility_id):
     try:
+        qa_facility_id = _facility_qa_scope_id(request.user)
+        if qa_facility_id is not None and int(facility_id) != qa_facility_id:
+            return JsonResponse({'error': 'You can only view plans for your assigned facility'}, status=403)
         plans = []
         for plan in InspectionPlan.objects.order_by('-start_date', 'title'):
             meta = _facility_plan_meta(plan)
@@ -1245,6 +1335,10 @@ def create_facility_plan(request):
             return JsonResponse({'error': 'Preparation date is required'}, status=400)
         if not department_ids:
             return JsonResponse({'error': 'At least one department is required'}, status=400)
+
+        qa_facility_id = _facility_qa_scope_id(request.user)
+        if qa_facility_id is not None and int(facility_id) != qa_facility_id:
+            return JsonResponse({'error': 'You can only create plans for your assigned facility'}, status=403)
 
         facility = get_object_or_404(Facility, id=facility_id)
         departments = Department.objects.filter(id__in=department_ids, facility=facility)
@@ -1284,6 +1378,8 @@ def create_facility_plan(request):
 def facility_plan_detail(request, plan_id):
     try:
         plan = get_object_or_404(InspectionPlan, id=plan_id)
+        if not _facility_plan_meta(plan).get('facility_plan') or not _can_access_facility_plan(request.user, plan):
+            return JsonResponse({'error': 'You do not have access to this facility plan'}, status=403)
         if request.method == 'DELETE':
             plan.delete()
             return JsonResponse({'success': True, 'message': 'Plan deleted successfully'})
@@ -1293,8 +1389,17 @@ def facility_plan_detail(request, plan_id):
         department_ids = data.get('departments', meta.get('departments') or [])
         preparation_date = data.get('preparation_date') or plan.start_date.isoformat()
 
+        facility_id = int((plan.facility_ids or [0])[0])
+        valid_department_ids = set(
+            Department.objects.filter(id__in=department_ids, facility_id=facility_id).values_list('id', flat=True)
+        )
+        if len(valid_department_ids) != len(set(int(value) for value in department_ids)):
+            return JsonResponse({'error': 'One or more selected departments do not belong to this facility'}, status=400)
+
         if 'title' in data:
             plan.title = data.get('title', '').strip()
+            if not plan.title:
+                return JsonResponse({'error': 'Plan title is required'}, status=400)
         meta.update({
             'facility_plan': True,
             'description': data.get('description', meta.get('description', '')).strip(),
@@ -1317,6 +1422,8 @@ def facility_plan_detail(request, plan_id):
 @permission_classes([IsAuthenticated])
 def update_inspection_plan(request, plan_id):
     try:
+        from standards.models import Standard
+
         plan = get_object_or_404(InspectionPlan, id=plan_id)
         data = json.loads(request.body or '{}')
         for field in ['title', 'description', 'status', 'quarter', 'recurrence_pattern']:
@@ -1326,14 +1433,24 @@ def update_inspection_plan(request, plan_id):
             if data.get(field):
                 setattr(plan, field, data[field])
         if 'focus_standard_ids' in data:
-            plan.focus_standard_ids = data.get('focus_standard_ids') or []
+            focus_standard_ids = _validated_plan_ids(
+                data.get('focus_standard_ids'), Standard, 'focus standards', active_only=True
+            )
+            if not focus_standard_ids:
+                return JsonResponse({'error': 'At least one focus standard is required'}, status=400)
+            plan.focus_standard_ids = focus_standard_ids
         if 'facility_ids' in data:
-            plan.facility_ids = data.get('facility_ids') or []
+            facility_ids = _validated_plan_ids(data.get('facility_ids'), Facility, 'facilities')
+            if not facility_ids:
+                return JsonResponse({'error': 'At least one facility is required'}, status=400)
+            plan.facility_ids = facility_ids
         if 'year' in data:
             plan.year = data.get('year')
         if 'is_recurring' in data:
             plan.is_recurring = data.get('is_recurring')
         plan.save()
+        if 'focus_standard_ids' in data:
+            plan.schedules.update(focus_standard_ids=plan.focus_standard_ids)
         return JsonResponse({'success': True, 'message': 'Inspection plan updated successfully'})
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=400)
@@ -1345,17 +1462,27 @@ def update_inspection_schedule(request, schedule_id):
     try:
         schedule = get_object_or_404(InspectionSchedule, id=schedule_id)
         data = json.loads(request.body or '{}')
+        scheduled_date = data.get('scheduled_date') or schedule.scheduled_date.isoformat()
+        deadline = data.get('end_date') or data.get('deadline') or schedule.deadline.isoformat()
+        parsed_scheduled_date = datetime.strptime(scheduled_date, '%Y-%m-%d').date()
+        parsed_deadline = datetime.strptime(deadline, '%Y-%m-%d').date()
+        if parsed_deadline < parsed_scheduled_date:
+            return JsonResponse({'error': 'End date cannot be before the visit date'}, status=400)
         if data.get('facility_id'):
             schedule.facility = get_object_or_404(Facility, id=data.get('facility_id'))
         if 'assigned_inspector_id' in data:
             inspector_id = data.get('assigned_inspector_id')
             schedule.assigned_inspector_id = inspector_id or None
         if data.get('scheduled_date'):
-            schedule.scheduled_date = data.get('scheduled_date')
+            schedule.scheduled_date = parsed_scheduled_date
         if data.get('end_date') or data.get('deadline'):
-            schedule.deadline = data.get('end_date') or data.get('deadline')
+            schedule.deadline = parsed_deadline
         if data.get('status'):
             schedule.status = data.get('status')
+            if schedule.status == 'completed' and not schedule.actual_date:
+                schedule.actual_date = datetime.now().date()
+            elif schedule.status != 'completed':
+                schedule.actual_date = None
         if 'focus_standard_ids' in data:
             schedule.focus_standard_ids = data.get('focus_standard_ids') or []
         meta = _schedule_meta(schedule)
@@ -1383,6 +1510,7 @@ def _pre_inspection_response(inspection):
 
 def _create_pre_inspection(request, facility_id):
     from standards.models import Requirement
+    from standards.views import calculate_requirement_result
 
     facility = get_object_or_404(Facility, id=facility_id)
     data = json.loads(request.body or '{}')
@@ -1405,10 +1533,14 @@ def _create_pre_inspection(request, facility_id):
         except (Requirement.DoesNotExist, TypeError, ValueError):
             continue
 
-        total_score += int(answer.get('score') or 0)
-        max_possible += int(answer.get('max_score_possible') or requirement.max_score or 0)
+        try:
+            response_score, response_possible = calculate_requirement_result(requirement, answer)
+        except ValueError as exc:
+            return JsonResponse({'error': str(exc)}, status=400)
+        total_score += response_score
+        max_possible += response_possible
 
-    percentage = int((total_score / max_possible) * 100) if max_possible else 0
+    percentage = round((total_score / max_possible) * 100) if max_possible else 0
 
     inspection = Inspection.objects.create(
         facility=facility,

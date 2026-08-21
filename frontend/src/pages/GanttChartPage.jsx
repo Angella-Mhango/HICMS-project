@@ -12,7 +12,8 @@ import {
   Calendar,
   User,
   AlertCircle,
-  CalendarDays
+  CalendarDays,
+  History
 } from "lucide-react";
 
 export default function GanttChartPage({ user, onLogout }) {
@@ -30,17 +31,16 @@ export default function GanttChartPage({ user, onLogout }) {
   });
   const [error, setError] = useState("");
   const [scheduleOptions, setScheduleOptions] = useState({ inspectors: [], inspection_types: [] });
+  const [viewMode, setViewMode] = useState("upcoming");
 
   useEffect(() => {
     fetchCurrentAdmin();
-  }, []);
+    fetchScheduleOptions();
+  }, [user.token]);
 
   useEffect(() => {
-    if (currentAdmin !== null) {
-      fetchGanttData();
-      fetchScheduleOptions();
-    }
-  }, [currentAdmin]);
+    fetchGanttData(viewMode);
+  }, [user.token, viewMode]);
 
   const fetchCurrentAdmin = async () => {
     try {
@@ -50,7 +50,6 @@ export default function GanttChartPage({ user, onLogout }) {
       if (response.ok) {
         const data = await response.json();
         setCurrentAdmin(data);
-        console.log("Current Admin:", data);
       } else {
         setCurrentAdmin(null);
       }
@@ -60,15 +59,17 @@ export default function GanttChartPage({ user, onLogout }) {
     }
   };
 
-  const fetchGanttData = async () => {
+  const fetchGanttData = async (mode = viewMode) => {
     setLoading(true);
     try {
-      const response = await fetch("http://127.0.0.1:8000/inspections/gantt-chart-data/", {
+      const query = mode === "past" ? "?view=past" : "";
+      const response = await fetch(`http://127.0.0.1:8000/inspections/gantt-chart-data/${query}`, {
         headers: { "Authorization": `Token ${user.token}` }
       });
       
       if (response.ok) {
         const data = await response.json();
+        setError("");
         setGanttData({
           facilities: Array.isArray(data.facilities) ? data.facilities : [],
           plans: Array.isArray(data.plans) ? data.plans : [],
@@ -76,15 +77,18 @@ export default function GanttChartPage({ user, onLogout }) {
           focusAreas: Array.isArray(data.focus_areas) ? data.focus_areas : [],
           timeline: data.timeline || { min_date: '', max_date: '', total_days: 0 }
         });
+        return true;
       } else {
         const errorData = await response.json();
         setError(errorData.error || "Failed to load Gantt chart data");
         showToast("Failed to load data", "error");
+        return false;
       }
     } catch (error) {
       console.error("Error fetching Gantt data:", error);
       setError("Network error");
       showToast("Network error", "error");
+      return false;
     } finally {
       setLoading(false);
     }
@@ -122,12 +126,12 @@ export default function GanttChartPage({ user, onLogout }) {
     if (!response.ok) {
       throw new Error(data.error || "Failed to update schedule");
     }
-    await fetchGanttData();
+    await fetchGanttData(viewMode);
     return data;
   };
-  const handleRefresh = () => {
-    fetchGanttData();
-    showToast("Data refreshed", "success");
+  const handleRefresh = async () => {
+    const refreshed = await fetchGanttData(viewMode);
+    if (refreshed) showToast("Data refreshed", "success");
   };
 
   // Check if user is National Admin only
@@ -144,13 +148,11 @@ export default function GanttChartPage({ user, onLogout }) {
   const canEdit = isNationalAdmin();
 
   const handleEditPlan = (plan) => {
-    console.log("✏️ Editing plan:", plan);
     setSelectedPlan(plan);
     setShowEditModal(true);
   };
 
   const handleOpenCreateModal = () => {
-    console.log("🔄 Opening Create Plan Modal");
     setSelectedPlan(null);
     setShowCreateModal(true);
   };
@@ -176,7 +178,7 @@ export default function GanttChartPage({ user, onLogout }) {
               Inspection Schedule
             </h1>
             <p className="text-sm text-gray-500 mt-1">
-              Nationwide inspection planning and scheduling
+              {viewMode === "past" ? "Completed facility inspection visits" : "Nationwide inspection planning and scheduling"}
             </p>
             <div className="flex items-center gap-4 mt-2 text-xs text-gray-400 flex-wrap">
               <span className="flex items-center gap-1">
@@ -189,7 +191,7 @@ export default function GanttChartPage({ user, onLogout }) {
               </span>
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />
-                {ganttData.schedules?.length || 0} scheduled
+                {ganttData.schedules?.length || 0} {viewMode === "past" ? "completed visits" : "scheduled"}
               </span>
               <span className="flex items-center gap-1">
                 <User className="w-3 h-3" />
@@ -203,7 +205,15 @@ export default function GanttChartPage({ user, onLogout }) {
               </span>
             </div>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
+            <div className="flex rounded-lg border border-gray-300 bg-white p-1 shadow-sm">
+              <button type="button" onClick={() => setViewMode("upcoming")} className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition ${viewMode === "upcoming" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+                <CalendarDays className="h-4 w-4" /> Upcoming
+              </button>
+              <button type="button" onClick={() => setViewMode("past")} className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition ${viewMode === "past" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
+                <History className="h-4 w-4" /> Past Visits
+              </button>
+            </div>
             <button
               onClick={handleRefresh}
               className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
@@ -211,7 +221,7 @@ export default function GanttChartPage({ user, onLogout }) {
               <RefreshCw className="w-4 h-4" />
               Refresh
             </button>
-            {canEdit && (
+            {canEdit && viewMode === "upcoming" && (
               <button 
                 className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
                 onClick={handleOpenCreateModal}
@@ -239,7 +249,11 @@ export default function GanttChartPage({ user, onLogout }) {
           schedules={ganttData.schedules || []}
           focusAreas={ganttData.focusAreas || []}
           timeline={ganttData.timeline || { min_date: '', max_date: '', total_days: 0 }}
-          canEdit={canEdit}
+          canEdit={canEdit && viewMode === "upcoming"}
+          viewMode={viewMode}
+          inspectors={scheduleOptions.inspectors}
+          inspectionTypes={scheduleOptions.inspection_types}
+          onUpdateTask={handleUpdateSchedule}
           onEditPlan={handleEditPlan}
         />
 
@@ -298,12 +312,10 @@ export default function GanttChartPage({ user, onLogout }) {
           user={user}
           isOpen={showCreateModal}
           onClose={() => {
-            console.log("🔴 Closing Create Plan Modal");
             setShowCreateModal(false);
             setSelectedPlan(null);
           }}
           onSuccess={() => {
-            console.log("✅ Plan created successfully, refreshing data...");
             handleRefresh();
           }}
           planToEdit={null}
@@ -317,12 +329,10 @@ export default function GanttChartPage({ user, onLogout }) {
           user={user}
           isOpen={showEditModal}
           onClose={() => {
-            console.log("🔴 Closing Edit Plan Modal");
             setShowEditModal(false);
             setSelectedPlan(null);
           }}
           onSuccess={() => {
-            console.log("✅ Plan updated successfully, refreshing data...");
             handleRefresh();
           }}
           planToEdit={selectedPlan}

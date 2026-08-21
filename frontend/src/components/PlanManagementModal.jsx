@@ -19,6 +19,29 @@ import {
 import { showToast } from "./Toast";
 import useModalExperience from "./useModalExperience";
 
+const getInitialFormData = () => {
+  const today = new Date();
+  const endDate = new Date(today);
+  const deadline = new Date(today);
+  endDate.setMonth(endDate.getMonth() + 3);
+  deadline.setDate(deadline.getDate() + 30);
+
+  return {
+    title: "",
+    description: "",
+    start_date: today.toISOString().split("T")[0],
+    end_date: endDate.toISOString().split("T")[0],
+    pre_inspection_deadline: deadline.toISOString().split("T")[0],
+    quarter: `Q${Math.floor(today.getMonth() / 3) + 1}`,
+    year: today.getFullYear(),
+    is_recurring: false,
+    recurrence_pattern: "quarterly",
+    status: "draft",
+    focus_standard_ids: [],
+    facility_ids: []
+  };
+};
+
 export default function PlanManagementModal({
   user,
   isOpen,
@@ -33,24 +56,11 @@ export default function PlanManagementModal({
   const [error, setError] = useState("");
   const [facilities, setFacilities] = useState([]);
   const [standards, setStandards] = useState([]);
-  const [selectedFacilities, setSelectedFacilities] = useState([]);
-  const [selectedStandards, setSelectedStandards] = useState([]);
   const [searchFacility, setSearchFacility] = useState("");
   const [searchStandard, setSearchStandard] = useState("");
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    start_date: "",
-    end_date: "",
-    pre_inspection_deadline: "",
-    quarter: "Q2",
-    year: new Date().getFullYear(),
-    is_recurring: false,
-    recurrence_pattern: "quarterly",
-    status: "draft",
-    focus_standard_ids: [],
-    facility_ids: []
-  });
+  const [formData, setFormData] = useState(getInitialFormData);
+  const selectedFacilities = formData.facility_ids;
+  const selectedStandards = formData.focus_standard_ids;
 
   useEffect(() => {
     if (isOpen) {
@@ -70,26 +80,15 @@ export default function PlanManagementModal({
           is_recurring: planToEdit.is_recurring || false,
           recurrence_pattern: planToEdit.recurrence_pattern || "quarterly",
           status: planToEdit.status || "draft",
-          focus_standard_ids: planToEdit.focus_standard_ids || [],
-          facility_ids: planToEdit.facility_ids || []
+          focus_standard_ids: (planToEdit.focus_standard_ids || []).map(Number),
+          facility_ids: (planToEdit.facility_ids || []).map(Number)
         });
-        setSelectedFacilities(planToEdit.facility_ids || []);
-        setSelectedStandards(planToEdit.focus_standard_ids || []);
       } else {
-        // Set default dates for new plan
-        const today = new Date();
-        const threeMonthsLater = new Date(today);
-        threeMonthsLater.setMonth(threeMonthsLater.getMonth() + 3);
-        
-        setFormData(prev => ({
-          ...prev,
-          start_date: today.toISOString().split('T')[0],
-          end_date: threeMonthsLater.toISOString().split('T')[0],
-          pre_inspection_deadline: new Date(today.setDate(today.getDate() + 30)).toISOString().split('T')[0]
-        }));
-        setSelectedFacilities([]);
-        setSelectedStandards([]);
+        setFormData(getInitialFormData());
       }
+      setSearchFacility("");
+      setSearchStandard("");
+      setError("");
     }
   }, [isOpen, isEditMode, planToEdit]);
 
@@ -110,12 +109,14 @@ export default function PlanManagementModal({
 
   const fetchStandards = async () => {
     try {
-      const response = await fetch("http://127.0.0.1:8000/api/standards/admin/", {
+      const response = await fetch("http://127.0.0.1:8000/api/standards/", {
         headers: { "Authorization": `Token ${user.token}` }
       });
       if (response.ok) {
         const data = await response.json();
-        setStandards(Array.isArray(data) ? data : []);
+        setStandards(Array.isArray(data) ? data.filter(standard => standard.is_active !== false) : []);
+      } else {
+        throw new Error("Standards request failed");
       }
     } catch (error) {
       console.error("Error fetching standards:", error);
@@ -132,12 +133,6 @@ export default function PlanManagementModal({
   };
 
   const toggleFacility = (facilityId) => {
-    setSelectedFacilities(prev => {
-      const newSelection = prev.includes(facilityId)
-        ? prev.filter(id => id !== facilityId)
-        : [...prev, facilityId];
-      return newSelection;
-    });
     setFormData(prev => {
       const currentIds = prev.facility_ids || [];
       const newIds = currentIds.includes(facilityId)
@@ -148,12 +143,6 @@ export default function PlanManagementModal({
   };
 
   const toggleStandard = (standardId) => {
-    setSelectedStandards(prev => {
-      const newSelection = prev.includes(standardId)
-        ? prev.filter(id => id !== standardId)
-        : [...prev, standardId];
-      return newSelection;
-    });
     setFormData(prev => {
       const currentIds = prev.focus_standard_ids || [];
       const newIds = currentIds.includes(standardId)
@@ -190,6 +179,12 @@ export default function PlanManagementModal({
     if (!formData.pre_inspection_deadline) {
       setError("Pre-inspection deadline is required");
       showToast("Pre-inspection deadline is required", "warning");
+      setSaving(false);
+      return;
+    }
+    if (formData.end_date < formData.start_date) {
+      setError("End date cannot be before the start date");
+      showToast("End date cannot be before the start date", "warning");
       setSaving(false);
       return;
     }
@@ -245,14 +240,16 @@ export default function PlanManagementModal({
 
   // Filter facilities by search
   const filteredFacilities = facilities.filter(f =>
-    f.name.toLowerCase().includes(searchFacility.toLowerCase()) ||
-    (f.district && f.district.toLowerCase().includes(searchFacility.toLowerCase()))
+    (f.name || "").toLowerCase().includes(searchFacility.toLowerCase()) ||
+    (f.district || "").toLowerCase().includes(searchFacility.toLowerCase())
   );
 
   // Filter standards by search
-  const filteredStandards = standards.filter(s =>
-    s.name.toLowerCase().includes(searchStandard.toLowerCase())
-  );
+  const filteredStandards = standards.filter(s => {
+    const query = searchStandard.toLowerCase();
+    return (s.name || "").toLowerCase().includes(query) ||
+      (s.code || "").toLowerCase().includes(query);
+  });
 
   if (!isOpen) return null;
 
@@ -455,8 +452,8 @@ export default function PlanManagementModal({
                 (Select the standards that will be inspected)
               </span>
             </label>
-            <div className="mb-2">
-              <div className="relative">
+            <div className="mb-2 flex gap-2">
+              <div className="relative flex-1">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
                 <input
                   type="text"
@@ -466,6 +463,8 @@ export default function PlanManagementModal({
                   className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm placeholder-gray-400"
                 />
               </div>
+              <button type="button" onClick={() => setFormData(prev => ({ ...prev, focus_standard_ids: filteredStandards.map(s => s.id) }))} className="whitespace-nowrap rounded-lg border border-green-600 px-3 py-2 text-sm text-green-700 hover:bg-green-50">Select shown</button>
+              <button type="button" onClick={() => setFormData(prev => ({ ...prev, focus_standard_ids: [] }))} className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100">Clear</button>
             </div>
             <div className="border border-gray-200 rounded-lg p-3 max-h-40 overflow-y-auto bg-gray-50">
               {filteredStandards.length === 0 ? (
@@ -486,7 +485,10 @@ export default function PlanManagementModal({
                         onChange={() => toggleStandard(standard.id)}
                         className="w-4 h-4 text-green-600 rounded focus:ring-2 focus:ring-green-500"
                       />
-                      <span className="text-sm text-gray-700 flex-1">{standard.name}</span>
+                      <span className="text-sm text-gray-700 flex-1">
+                        {standard.code && <span className="font-medium">{standard.code} — </span>}
+                        {standard.name}
+                      </span>
                       <span className="text-xs text-gray-400">
                         {standard.requirements?.length || 0} reqs
                       </span>

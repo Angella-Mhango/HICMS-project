@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import HierarchyFilter from "../components/HierarchyFilter";
-import { BarChart, Bar, Cell, ReferenceLine, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { BarChart, Bar, Legend, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import {
   LayoutDashboard,
   Building2,
@@ -23,15 +23,13 @@ function StandardsTooltip({ active, payload }) {
   if (!active || !payload?.length) return null;
 
   const standard = payload[0].payload;
-  const isMet = standard.status === "Met";
-
   return (
     <div className="max-w-64 rounded-lg border border-gray-200 bg-white p-3 text-sm shadow-lg">
       <p className="font-semibold text-gray-800">{standard.standard}: {standard.standard_name}</p>
       <p className="mt-1 text-gray-600">Performance: <span className="font-semibold">{standard.performance}%</span></p>
-      <p className={`font-semibold ${isMet ? "text-green-600" : "text-red-600"}`}>
-        {isMet ? "Met" : "Not met"} (target: 80%)
-      </p>
+      <p className="mt-1 font-semibold text-green-600">Met assessments: {standard.met || 0}</p>
+      <p className="font-semibold text-red-600">Not met assessments: {standard.not_met || 0}</p>
+      <p className="mt-1 text-xs text-gray-500">Target: 80%</p>
     </div>
   );
 }
@@ -42,8 +40,8 @@ export default function AdminDashboard({ user, onLogout }) {
    
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({});
-  const [, setChartData] = useState([]);
-  const [complianceTrends, setComplianceTrends] = useState([]);
+  const [chartData, setChartData] = useState([]);
+  const [, setComplianceTrends] = useState([]);
   const [standardsPerformance, setStandardsPerformance] = useState([]);
   const [, setTotalFacilities] = useState(0);
   const [, setActiveInspectors] = useState(0);
@@ -57,6 +55,14 @@ export default function AdminDashboard({ user, onLogout }) {
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [showCustomDate, setShowCustomDate] = useState(false);
+  const isQAOfficer = user?.role?.toLowerCase() === "facility_qa";
+
+  const filterForScope = (adminInfo) => {
+    if (adminInfo?.level === 'regional' && adminInfo.region) return { level: 'region', name: adminInfo.region.name, id: adminInfo.region.id };
+    if (adminInfo?.level === 'district' && adminInfo.district) return { level: 'district', name: adminInfo.district.name, id: adminInfo.district.id };
+    if (adminInfo?.level === 'facility' && adminInfo.facility) return { level: 'facility', name: adminInfo.facility.name, id: adminInfo.facility.id };
+    return { level: 'national', name: 'National (All Facilities)', id: null };
+  };
 
   useEffect(() => {
     fetchCurrentAdmin();
@@ -76,10 +82,10 @@ export default function AdminDashboard({ user, onLogout }) {
 
   // Set charts ready after data loads
   useEffect(() => {
-    if (!loading && (standardsPerformance.length > 0 || complianceTrends.length > 0)) {
+    if (!loading && (standardsPerformance.length > 0 || chartData.length > 0)) {
       setChartsReady(true);
     }
-  }, [loading, standardsPerformance, complianceTrends]);
+  }, [loading, standardsPerformance, chartData]);
 
   const fetchCurrentAdmin = async () => {
     console.log("🔄 fetchCurrentAdmin started");
@@ -100,15 +106,7 @@ export default function AdminDashboard({ user, onLogout }) {
         setCurrentAdmin(data);
         console.log("✅ currentAdmin set to:", data);
         
-        if (data.level === 'regional' && data.region) {
-          setSelectedFilter({ level: 'region', name: data.region.name, id: data.region.id });
-        } else if (data.level === 'district' && data.district) {
-          setSelectedFilter({ level: 'district', name: data.district.name, id: data.district.id });
-        } else if (data.level === 'facility' && data.facility) {
-          setSelectedFilter({ level: 'facility', name: data.facility.name, id: data.facility.id });
-        } else {
-          setSelectedFilter({ level: 'national', name: 'National (All Facilities)', id: null });
-        }
+        setSelectedFilter(filterForScope(data));
       } else if (response.status === 404) {
         console.log("⚠️ 404: No admin profile found, using national scope");
         setCurrentAdmin({ level: 'national', level_name: 'National' });
@@ -246,7 +244,7 @@ export default function AdminDashboard({ user, onLogout }) {
   };
 
   const resetFilters = () => {
-    setSelectedFilter({ level: 'national', name: 'National (All Facilities)', id: null });
+    setSelectedFilter(filterForScope(currentAdmin));
     setDateRange("all");
     setCustomStartDate("");
     setCustomEndDate("");
@@ -287,7 +285,7 @@ export default function AdminDashboard({ user, onLogout }) {
           <div>
             <h1 className="text-2xl font-semibold text-gray-700">Dashboard Overview</h1>
             <p className="text-sm text-gray-500 mt-1">
-              Welcome back, {user.username} ({adminLevelName} Admin)
+              Welcome back, {user.username} ({isQAOfficer ? `${adminLevelName} QA Officer` : `${adminLevelName} Admin`})
             </p>
           </div>
         </div>
@@ -408,22 +406,18 @@ export default function AdminDashboard({ user, onLogout }) {
                 <h3 className="text-gray-600 font-semibold">Performance Against Standards</h3>
               </div>
               <div className="mb-2 flex flex-wrap items-center gap-4 text-xs text-gray-600">
-                <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-green-500" /> Met (80% or above)</span>
-                <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-red-500" /> Not met (below 80%)</span>
+                <span>Each pair of bars shows assessment counts against the 80% target.</span>
               </div>
               <div className="h-[250px] min-h-[200px] w-full">
                 {chartsReady && standardsPerformance.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={standardsPerformance} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
                       <XAxis dataKey="standard" fontSize={12} interval={0} angle={-25} textAnchor="end" height={55} />
-                      <YAxis fontSize={12} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                      <YAxis fontSize={12} allowDecimals={false} />
                       <Tooltip content={<StandardsTooltip />} />
-                      <ReferenceLine y={80} stroke="#64748b" strokeDasharray="4 4" label={{ value: "80% target", position: "insideTopRight", fill: "#64748b", fontSize: 11 }} />
-                      <Bar dataKey="performance" name="Performance (%)" radius={[4, 4, 0, 0]}>
-                        {standardsPerformance.map((item) => (
-                          <Cell key={item.standard} fill={item.status === "Met" ? "#22c55e" : "#ef4444"} />
-                        ))}
-                      </Bar>
+                      <Legend />
+                      <Bar dataKey="met" name="Met" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="not_met" name="Not met" fill="#ef4444" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
@@ -436,18 +430,20 @@ export default function AdminDashboard({ user, onLogout }) {
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
               <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-5 h-5 text-gray-600" />
-                <h3 className="text-gray-600 font-semibold">Inspection Compliance Trend</h3>
+                <BarChart3 className="w-5 h-5 text-gray-600" />
+                <h3 className="text-gray-600 font-semibold">Compliant vs Non-Compliant Inspections</h3>
               </div>
               <div className="h-[250px] min-h-[200px] w-full">
-                {chartsReady && complianceTrends && complianceTrends.length > 0 ? (
+                {chartsReady && chartData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={complianceTrends} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                    <BarChart data={chartData} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                       <XAxis dataKey="month" fontSize={12} />
-                      <YAxis fontSize={12} />
+                      <YAxis fontSize={12} allowDecimals={false} />
                       <Tooltip />
-                      <Line type="monotone" dataKey="compliance_rate" stroke="#22c55e" strokeWidth={2} />
-                    </LineChart>
+                      <Legend />
+                      <Bar dataKey="compliant" name="Compliant" fill="#22c55e" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="non_compliant" name="Non-Compliant" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    </BarChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-full">
