@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 export default function InspectionPlanningPage({ user, onLogout }) {
+  const [hasPreInspection, setHasPreInspection] = useState(false);
   const [loading, setLoading] = useState(true);
   const [plans, setPlans] = useState([]);
   const [facilityInfo, setFacilityInfo] = useState(null);
@@ -34,7 +35,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
     departments: [],
     preparation_date: "",
     focal_person: "",
-    status: "draft"
+    status: "submitted"
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -52,6 +53,8 @@ export default function InspectionPlanningPage({ user, onLogout }) {
 
   useEffect(() => {
     if (facilityInfo) {
+      fetch(`http://127.0.0.1:8000/inspections/pre-inspection/${facilityInfo.facility.id}/`, { headers: { Authorization: `Token ${user.token}` } })
+        .then(res => res.ok ? res.json() : Promise.reject()).then(data => setHasPreInspection(Boolean(data.id))).catch(() => setHasPreInspection(false));
       fetchDepartments();
       fetchPlans();
     }
@@ -253,7 +256,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
       departments: [],
       preparation_date: "",
       focal_person: "",
-      status: "draft"
+      status: "submitted"
     });
   };
 
@@ -283,7 +286,8 @@ export default function InspectionPlanningPage({ user, onLogout }) {
     const statusMap = {
       draft: { label: "Draft", className: "bg-green-100 text-green-700" },
       active: { label: "Active", className: "bg-green-200 text-green-800" },
-      submitted: { label: "Submitted", className: "bg-green-100 text-green-700" },
+      approved: { label: "Approved", className: "bg-green-200 text-green-800" },
+      submitted: { label: "Pending approval", className: "bg-green-100 text-green-700" },
       completed: { label: "Completed", className: "bg-green-200 text-green-800" }
     };
     const s = statusMap[status] || statusMap.draft;
@@ -341,6 +345,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
         </div>
       </div>
 
+      {!hasPreInspection && <p className="mb-4 rounded border border-amber-300 bg-amber-50 p-4">Complete a pre-inspection before creating an inspection plan. <a className="underline" href="/pre-inspection">Go to pre-inspection</a></p>}
       {/* Quick Actions - All Green */}
       <div className="flex flex-wrap gap-3 mb-6">
         <button
@@ -352,6 +357,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
         </button>
         <button
           onClick={() => {
+            if (!hasPreInspection) return;
             setEditingPlan(null);
             resetForm();
             setShowCreateModal(true);
@@ -359,7 +365,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
           className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
-          New Plan
+          {hasPreInspection ? "New Plan" : "Pre-inspection required"}
         </button>
       </div>
 
@@ -385,8 +391,8 @@ export default function InspectionPlanningPage({ user, onLogout }) {
             >
               <option value="all">All Status</option>
               <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="submitted">Submitted</option>
+              <option value="approved">Approved</option>
+              <option value="submitted">Pending approval</option>
               <option value="completed">Completed</option>
             </select>
           </div>
@@ -405,6 +411,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
             <p className="text-gray-400 mt-2">Create your first inspection plan to get started</p>
             <button
               onClick={() => {
+                if (!hasPreInspection) return;
                 setEditingPlan(null);
                 resetForm();
                 setShowCreateModal(true);
@@ -481,7 +488,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
                       </div>
                     </div>
                   </div>
-                  <div className="flex gap-2 mt-4 pt-4 border-t border-gray-200">
+                  {["draft", "active"].includes(plan.status) && <div className="flex gap-2 mt-4 pt-4 border-t border-gray-200">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -521,7 +528,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
                       <CheckCircle className="w-4 h-4" />
                       Submit
                     </button>}
-                  </div>
+                  </div>}
                 </div>
               )}
             </div>
@@ -646,8 +653,7 @@ export default function InspectionPlanningPage({ user, onLogout }) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
                 >
                   <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="submitted">Submitted</option>
+                  <option value="submitted">Pending approval</option>
                 </select>
               </div>
 

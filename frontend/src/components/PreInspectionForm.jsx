@@ -498,6 +498,19 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
     return step;
   };
 
+  const goToFirstIncompleteRequirement = () => {
+    for (let standardIndex = 0; standardIndex < standards.length; standardIndex++) {
+      const requirementIndex = standards[standardIndex].requirements.findIndex(
+        requirement => !isRequirementComplete(requirement.id)
+      );
+      if (requirementIndex !== -1) {
+        setCurrentStandardIndex(standardIndex);
+        setCurrentRequirementIndex(requirementIndex);
+        return;
+      }
+    }
+  };
+
   const goToNextRequirement = () => {
     const currentStandard = getCurrentStandard();
     if (!currentStandard) return;
@@ -507,6 +520,8 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
     } else if (currentStandardIndex < standards.length - 1) {
       setCurrentStandardIndex(currentStandardIndex + 1);
       setCurrentRequirementIndex(0);
+    } else {
+      goToFirstIncompleteRequirement();
     }
     setError("");
   };
@@ -780,7 +795,7 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
                   <FileText className="w-4 h-4" />
                   <span>{currentStandard.name}</span>
                   <span className="text-gray-300">|</span>
-                  <span className="text-gray-500">Requirement {currentRequirementIndex + 1} of {currentStandard.requirements.length}</span>
+                  <span className="text-gray-500">Requirement {currentStep} of {totalSteps} overall</span>
                 </div>
                 <h3 className="text-lg font-semibold text-gray-800">
                   {currentReq.name}
@@ -904,14 +919,14 @@ export default function PreInspectionForm({ user, facilityId, onComplete, onClos
                 </div>
                 <button
                   onClick={goToNextRequirement}
-                  disabled={currentStep === totalSteps}
+                  disabled={currentStep === totalSteps && completedRequirements === totalRequirements}
                   className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 text-sm ${
-                    currentStep === totalSteps
+                    currentStep === totalSteps && completedRequirements === totalRequirements
                       ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                       : 'bg-green-600 text-white hover:bg-green-700'
                   }`}
                 >
-                  Next
+                  {currentStep === totalSteps && completedRequirements < totalRequirements ? "Review unanswered" : "Next"}
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>

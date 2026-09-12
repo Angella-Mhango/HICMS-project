@@ -2,6 +2,8 @@
 from . import views
 
 urlpatterns = [
+    path('facility/plans/review/', views.review_facility_plans),
+    path('schedules/assigned/', views.assigned_schedules),
     # Dashboard endpoints
     path('dashboard/', views.dashboard_stats, name='dashboard-stats'),
     path('dashboard/filtered/', views.dashboard_stats, name='dashboard-stats-filtered'),

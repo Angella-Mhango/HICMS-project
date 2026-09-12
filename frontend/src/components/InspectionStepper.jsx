@@ -29,7 +29,7 @@ const onlyActiveStandards = (items) => {
     .filter((standard) => standard.requirements.length > 0);
 };
 
-export default function InspectionStepper({ user, onComplete, onClose, onSubmitted, initialFacilityId, preInspectionId }) {
+export default function InspectionStepper({ user, onComplete, onClose, onSubmitted, initialFacilityId, preInspectionId, scheduleId }) {
   const [standards, setStandards] = useState([]);
   const [answers, setAnswers] = useState({});
   const [images, setImages] = useState({});
@@ -106,6 +106,10 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
       showToast("Error loading inspection types", "error");
     }
   };
+  useEffect(() => {
+    if (initialFacilityId && facilities.length && !selectedFacility) handleFacilityChange(String(initialFacilityId));
+  }, [initialFacilityId, facilities]);
+
   // When facility is selected, fetch departments
   const handleFacilityChange = async (facilityId) => {
     setSelectedFacility(facilityId);
@@ -512,6 +516,19 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
     return step;
   };
 
+  const goToFirstIncompleteRequirement = () => {
+    for (let standardIndex = 0; standardIndex < standards.length; standardIndex++) {
+      const requirementIndex = standards[standardIndex].requirements.findIndex(
+        requirement => !isRequirementComplete(requirement.id)
+      );
+      if (requirementIndex !== -1) {
+        setCurrentStandardIndex(standardIndex);
+        setCurrentRequirementIndex(requirementIndex);
+        return;
+      }
+    }
+  };
+
   const goToNextRequirement = () => {
     const currentStandard = getCurrentStandard();
     if (!currentStandard) return;
@@ -521,6 +538,8 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
     } else if (currentStandardIndex < standards.length - 1) {
       setCurrentStandardIndex(currentStandardIndex + 1);
       setCurrentRequirementIndex(0);
+    } else {
+      goToFirstIncompleteRequirement();
     }
     setError("");
   };
@@ -574,6 +593,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
     );
 
     if (!allComplete) {
+      goToFirstIncompleteRequirement();
       setError("Please complete all requirements before submitting");
       showToast("Please complete all requirements before submitting", "warning");
       return;
@@ -614,6 +634,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
           inspector: inspectorName || user.username,
           visit_type: "Follow-up",
           responses: responses,
+          schedule_id: scheduleId || null,
           pre_inspection_id: preInspectionId || null
         })
       });
@@ -718,6 +739,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Facility *</label>
                 <select
+                  disabled={Boolean(scheduleId)}
                   value={selectedFacility}
                   onChange={(e) => handleFacilityChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 text-sm bg-white"
@@ -818,7 +840,7 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
                       <FileText className="w-4 h-4" />
                       <span>{currentStandard.name}</span>
                       <span className="text-gray-300">|</span>
-                      <span className="text-gray-500">Requirement {currentRequirementIndex + 1} of {currentStandard.requirements.length}</span>
+                      <span className="text-gray-500">Requirement {currentStep} of {totalSteps} overall</span>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-800">
                       {currentReq.name}
@@ -955,14 +977,14 @@ export default function InspectionStepper({ user, onComplete, onClose, onSubmitt
                     </div>
                     <button
                       onClick={goToNextRequirement}
-                      disabled={currentStep === totalSteps}
+                      disabled={currentStep === totalSteps && completedRequirements === totalRequirements}
                       className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1 text-sm ${
-                        currentStep === totalSteps
+                        currentStep === totalSteps && completedRequirements === totalRequirements
                           ? "bg-gray-200 text-gray-400 cursor-not-allowed"
                           : "bg-green-600 text-white hover:bg-green-700"
                       }`}
                     >
-                      Next
+                      {currentStep === totalSteps && completedRequirements < totalRequirements ? "Review unanswered" : "Next"}
                       <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>

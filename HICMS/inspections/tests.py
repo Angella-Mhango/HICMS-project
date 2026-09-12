@@ -1,4 +1,5 @@
 import json
+from datetime import date, timedelta
 
 from django.contrib.auth.models import User
 from django.test import TestCase
@@ -22,6 +23,7 @@ class FacilityQAPlanningTests(TestCase):
         self.client.force_authenticate(self.user)
 
     def test_qa_can_create_list_and_submit_own_facility_plan(self):
+        Inspection.objects.create(facility=self.facility, facility_name=self.facility.name, inspector='qa', visit_type='Observation', notes='PRE_INSPECTION')
         response = self.client.post('/inspections/facility/plans/create/', {
             'title': 'QA readiness plan',
             'facility_id': self.facility.id,
@@ -58,6 +60,7 @@ class FacilityQAPlanningTests(TestCase):
 class InspectionPlanFocusStandardTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='plan-admin', password='test-password')
+        UserRole.objects.create(user=self.user, role=Role.objects.create(name='national_admin'))
         self.client = APIClient()
         self.client.force_authenticate(self.user)
         self.facility = Facility.objects.create(name='Plan facility')
@@ -66,9 +69,9 @@ class InspectionPlanFocusStandardTests(TestCase):
         )
         self.payload = {
             'title': 'Focused inspection plan',
-            'start_date': '2026-09-01',
-            'end_date': '2026-09-30',
-            'pre_inspection_deadline': '2026-09-15',
+            'start_date': (date.today() + timedelta(days=1)).isoformat(),
+            'end_date': (date.today() + timedelta(days=30)).isoformat(),
+            'pre_inspection_deadline': (date.today() + timedelta(days=1)).isoformat(),
             'facility_ids': [self.facility.id],
             'focus_standard_ids': [self.standard.id],
         }
@@ -317,3 +320,36 @@ class DashboardLocationFilterTests(TestCase):
         self.assertEqual(stats['assessed_facilities'], 1)
         self.assertEqual(len(standards), 1)
         self.assertNotIn('South', json.dumps(standards))
+
+
+class PlanApprovalWorkflowTests(FacilityQAPlanningTests):
+    def test_preinspection_approval_assignment_workflow(self):
+        payload = {'title': 'Requested visit', 'facility_id': self.facility.id,
+                   'departments': [self.department.id], 'preparation_date': '2027-01-12', 'status': 'submitted'}
+        url = '/inspections/facility/plans/create/'
+        self.assertEqual(self.client.post(url, payload, format='json').status_code, 400)
+        Inspection.objects.create(facility=self.facility, facility_name=self.facility.name,
+                                  inspector='qa', visit_type='Observation', notes='PRE_INSPECTION')
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, 201)
+        plan = InspectionPlan.objects.get(id=response.json()['plan']['id'])
+        self.assertFalse(plan.schedules.exists())
+        review = '/inspections/facility/plans/review/'
+        self.assertEqual(self.client.patch(review, {'id': plan.id, 'action': 'approve'}, format='json').status_code, 403)
+        admin = User.objects.create_user(username='national-reviewer')
+        UserRole.objects.create(user=admin, role=Role.objects.create(name='national_admin'))
+        inspector = User.objects.create_user(username='assigned-inspector')
+        UserRole.objects.create(user=inspector, role=Role.objects.create(name='inspector'))
+        self.client.force_authenticate(admin)
+        self.assertEqual(len(self.client.get(review).json()), 1)
+        self.assertEqual(self.client.patch(review, {'id': plan.id, 'action': 'assign', 'inspector_id': inspector.id}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch(review, {'id': plan.id, 'action': 'approve'}, format='json').status_code, 200)
+        self.assertEqual(plan.schedules.count(), 1)
+        self.assertEqual(self.client.patch(review, {'id': plan.id, 'action': 'approve'}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch(review, {'id': plan.id, 'action': 'assign', 'inspector_id': inspector.id}, format='json').status_code, 200)
+        self.assertEqual(len(self.client.get('/inspections/gantt-chart-data/').json()['schedules']), 1)
+        self.client.force_authenticate(inspector)
+        self.assertEqual(len(self.client.get('/inspections/schedules/assigned/').json()), 1)
+        self.client.force_authenticate(self.user)
+        self.assertEqual(self.client.get('/inspections/schedules/assigned/').json(), [])
+        self.assertEqual(self.client.patch(f'/inspections/facility/plans/{plan.id}/', {'status': 'draft'}, format='json').status_code, 403)

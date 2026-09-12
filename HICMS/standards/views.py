@@ -366,6 +366,12 @@ def get_compliance_scales(request):
 def submit_standard_inspection(request):
     try:
         data = json.loads(request.body)
+        schedule = None
+        if data.get('schedule_id'):
+            from inspections.models import InspectionSchedule
+            schedule = InspectionSchedule.objects.filter(id=data['schedule_id'], assigned_inspector=request.user).first()
+            if not schedule or schedule.status in ['completed', 'cancelled'] or schedule.facility_id != int(data.get('facility_id') or 0):
+                return JsonResponse({'error': 'This scheduled inspection is not available to you'}, status=403)
         
         required_fields = ['facility_name', 'responses']
         for field in required_fields:
@@ -457,6 +463,11 @@ def submit_standard_inspection(request):
         inspection.notes = f"{notes}\nSTANDARD_PERFORMANCE={json.dumps(list(standard_totals.values()))}".strip()
         inspection.save()
         
+        if schedule:
+            schedule.status = 'completed'
+            schedule.actual_date = inspection.date
+            schedule.save(update_fields=['status', 'actual_date'])
+
         return JsonResponse({
             "success": True,
             "inspection_id": inspection.id,

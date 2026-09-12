@@ -18,6 +18,9 @@ import {
 } from "lucide-react";
 
 export default function MyInspections({ user, onLogout }) {
+  const [schedules, setSchedules] = useState([]);
+  const [selectedSchedule, setSelectedSchedule] = useState(null);
+  const [viewSchedule, setViewSchedule] = useState(null);
   const [inspections, setInspections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -31,6 +34,9 @@ export default function MyInspections({ user, onLogout }) {
   const fetchInspections = async () => {
     setLoading(true);
     try {
+      const assigned = await fetch("http://127.0.0.1:8000/inspections/schedules/assigned/", { headers: { Authorization: `Token ${user.token}` } });
+      if (!assigned.ok) throw new Error("Unable to load assignments");
+      setSchedules(await assigned.json());
       const response = await fetch("http://127.0.0.1:8000/inspections/api/", {
         headers: { "Authorization": `Token ${user.token}` }
       });
@@ -97,7 +103,7 @@ export default function MyInspections({ user, onLogout }) {
               Refresh
             </button>
             <button
-              onClick={() => setShowStepperModal(true)}
+              onClick={() => { setSelectedSchedule(null); setShowStepperModal(true); }}
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
@@ -106,6 +112,16 @@ export default function MyInspections({ user, onLogout }) {
           </div>
         </div>
 
+        <section className="rounded-xl border bg-white p-5 space-y-3">
+          <h2 className="text-lg font-semibold">Assigned inspection plans</h2>
+          {!schedules.length && <p>No scheduled inspections assigned to you.</p>}
+          {schedules.map(schedule => <div key={schedule.id} className="flex flex-wrap items-center justify-between gap-3 border-b py-3">
+            <div><p className="font-medium">{schedule.plan_title} ? {schedule.facility_name}</p><p className="text-sm">{schedule.scheduled_date} to {schedule.end_date} ? {schedule.status}</p></div>
+            <div className="flex gap-3"><button className="rounded border px-3 py-2" onClick={() => setViewSchedule(schedule)}>View</button>
+            {!["completed", "cancelled"].includes(schedule.status) && <button className="rounded bg-green-700 px-3 py-2 text-white" onClick={() => { setSelectedSchedule(schedule); setShowStepperModal(true); }}>Conduct inspection</button>}</div>
+          </div>)}
+          {viewSchedule && <div className="rounded bg-green-50 p-4"><h3 className="font-semibold">{viewSchedule.plan_title}</h3><p>{viewSchedule.facility_name} ? {viewSchedule.inspection_type_label}</p><p>{viewSchedule.notes || "No additional notes"}</p><button className="underline" onClick={() => setViewSchedule(null)}>Close details</button></div>}
+        </section>
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -168,7 +184,7 @@ export default function MyInspections({ user, onLogout }) {
                         <p className="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
                       ) : (
                         <button
-                          onClick={() => setShowStepperModal(true)}
+                          onClick={() => { setSelectedSchedule(null); setShowStepperModal(true); }}
                           className="mt-3 text-green-600 hover:text-green-700 font-medium"
                         >
                           Create your first inspection →
@@ -244,6 +260,8 @@ export default function MyInspections({ user, onLogout }) {
             </div>
             <div className="p-6">
               <InspectionStepper
+                initialFacilityId={selectedSchedule?.facility_id}
+                scheduleId={selectedSchedule?.id}
                 user={user}
                 onComplete={handleInspectionComplete}
                 onClose={() => setShowStepperModal(false)}

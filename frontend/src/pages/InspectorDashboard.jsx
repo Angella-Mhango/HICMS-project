@@ -5,6 +5,7 @@ import Layout from "../components/Layout";
 import AddInspectionModal from "../components/AddInspectionModal";
 import InspectionStepper from "../components/InspectionStepper";
 import { showToast } from "../components/Toast";
+import { getInspectionNotes } from "../lib/inspectionNotes";
 import {
   ClipboardList,
   CheckCircle,
@@ -486,7 +487,7 @@ export default function InspectorDashboard({ user, onLogout }) {
                 <div className="col-span-2">
                   <label className="text-xs text-gray-500 font-medium uppercase tracking-wider block">Notes</label>
                   <p className="text-gray-700 mt-1 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    {selectedInspection.notes || "No notes provided"}
+                    {getInspectionNotes(selectedInspection.notes) || "No notes provided"}
                   </p>
                 </div>
               </div>

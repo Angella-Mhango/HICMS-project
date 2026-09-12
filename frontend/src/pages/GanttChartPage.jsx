@@ -1,5 +1,6 @@
 // frontend/src/pages/GanttChartPage.jsx
 import { useState, useEffect } from "react";
+import PlanReview from "../components/PlanReview";
 import Layout from "../components/Layout";
 import GanttChart from "../components/GanttChart";
 import PlanManagementModal from "../components/PlanManagementModal";
@@ -17,6 +18,7 @@ import {
 } from "lucide-react";
 
 export default function GanttChartPage({ user, onLogout }) {
+  const [showReview, setShowReview] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -206,6 +208,7 @@ export default function GanttChartPage({ user, onLogout }) {
             </div>
           </div>
           <div className="flex flex-wrap gap-3">
+            {user.role === "national_admin" && <button className="rounded-lg bg-green-700 px-4 py-2 text-white" onClick={() => setShowReview(!showReview)}>Review QA inspection requests</button>}
             <div className="flex rounded-lg border border-gray-300 bg-white p-1 shadow-sm">
               <button type="button" onClick={() => setViewMode("upcoming")} className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition ${viewMode === "upcoming" ? "bg-green-600 text-white" : "text-gray-600 hover:bg-gray-100"}`}>
                 <CalendarDays className="h-4 w-4" /> Upcoming
@@ -242,6 +245,7 @@ export default function GanttChartPage({ user, onLogout }) {
         )}
 
         {/* Gantt Chart */}
+        {showReview && user.role === "national_admin" && <PlanReview user={user} onChanged={() => fetchGanttData()} />}
         <GanttChart
           user={user}
           plans={ganttData.plans || []}

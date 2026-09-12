@@ -565,6 +565,10 @@ def gantt_chart_data(request):
             .order_by('scheduled_date', 'facility__name')
         )
 
+        schedules = _apply_user_location_scope(schedules, request.user)
+        role_name = getattr(getattr(getattr(request.user, 'userrole', None), 'role', None), 'name', '').lower()
+        if 'inspector' in role_name:
+            schedules = schedules.filter(assigned_inspector=request.user)
         today = datetime.now().date()
         view_mode = request.GET.get('view', 'upcoming')
         if view_mode == 'past':
@@ -1167,6 +1171,8 @@ def _validated_plan_ids(raw_ids, model, label, active_only=False):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def create_inspection_plan(request):
+    if not _national_admin(request.user):
+        return JsonResponse({'error': 'National admin access required'}, status=403)
     try:
         from standards.models import Standard
 
@@ -1231,7 +1237,8 @@ def _facility_plan_status_to_model(status):
     return {
         'draft': 'draft',
         'active': 'published',
-        'submitted': 'published',
+        'submitted': 'draft',
+        'approved': 'published',
         'completed': 'completed',
     }.get(status or 'draft', 'draft')
 
@@ -1273,10 +1280,13 @@ def _serialize_facility_plan(plan):
     return {
         'id': plan.id,
         'title': plan.title,
+        'facility_name': Facility.objects.filter(id__in=plan.facility_ids).values_list('name', flat=True).first(),
+        'schedules': [_serialize_schedule(row) for row in plan.schedules.all()],
         'description': meta.get('description', plan.description or ''),
         'departments': department_ids,
         'department_names': department_names,
         'preparation_date': _date_value(plan.start_date),
+        'end_date': _date_value(plan.end_date),
         'focal_person': meta.get('focal_person', ''),
         'status': meta.get('status') or _facility_plan_status_from_model(plan.status),
         'progress': 100 if plan.status == 'completed' else 50 if plan.status in ['published', 'in_progress'] else 0,
@@ -1340,6 +1350,12 @@ def create_facility_plan(request):
         if qa_facility_id is not None and int(facility_id) != qa_facility_id:
             return JsonResponse({'error': 'You can only create plans for your assigned facility'}, status=403)
 
+        if qa_facility_id is None:
+            return JsonResponse({'error': 'Only facility QA can request a plan'}, status=403)
+        if not Inspection.objects.filter(facility_id=facility_id, notes__startswith='PRE_INSPECTION').exists():
+            return JsonResponse({'error': 'Complete a pre-inspection before creating a plan'}, status=400)
+        if data.get('status', 'submitted') not in ['draft', 'submitted']:
+            return JsonResponse({'error': 'Invalid plan status'}, status=400)
         facility = get_object_or_404(Facility, id=facility_id)
         departments = Department.objects.filter(id__in=department_ids, facility=facility)
         if departments.count() != len(set(department_ids)):
@@ -1350,7 +1366,7 @@ def create_facility_plan(request):
             'description': data.get('description', '').strip(),
             'departments': department_ids,
             'focal_person': data.get('focal_person', '').strip(),
-            'status': data.get('status', 'draft'),
+            'status': data.get('status', 'submitted'),
         }
         plan = InspectionPlan.objects.create(
             title=data.get('title', '').strip(),
@@ -1380,12 +1396,16 @@ def facility_plan_detail(request, plan_id):
         plan = get_object_or_404(InspectionPlan, id=plan_id)
         if not _facility_plan_meta(plan).get('facility_plan') or not _can_access_facility_plan(request.user, plan):
             return JsonResponse({'error': 'You do not have access to this facility plan'}, status=403)
+        if _facility_qa_scope_id(request.user) is None or _facility_plan_meta(plan).get('status') not in ['draft', 'active']:
+            return JsonResponse({'error': 'Only QA draft plans can be changed here'}, status=403)
         if request.method == 'DELETE':
             plan.delete()
             return JsonResponse({'success': True, 'message': 'Plan deleted successfully'})
 
         data = json.loads(request.body or '{}')
         meta = _facility_plan_meta(plan)
+        if data.get('status', 'draft') not in ['draft', 'submitted']:
+            return JsonResponse({'error': 'Invalid plan status'}, status=400)
         department_ids = data.get('departments', meta.get('departments') or [])
         preparation_date = data.get('preparation_date') or plan.start_date.isoformat()
 
@@ -1421,10 +1441,14 @@ def facility_plan_detail(request, plan_id):
 @api_view(['PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def update_inspection_plan(request, plan_id):
+    if not _national_admin(request.user):
+        return JsonResponse({'error': 'National admin access required'}, status=403)
     try:
         from standards.models import Standard
 
         plan = get_object_or_404(InspectionPlan, id=plan_id)
+        if _facility_plan_meta(plan).get('facility_plan'):
+            return JsonResponse({'error': 'Use the QA plan review workflow'}, status=400)
         data = json.loads(request.body or '{}')
         for field in ['title', 'description', 'status', 'quarter', 'recurrence_pattern']:
             if field in data:
@@ -1459,6 +1483,8 @@ def update_inspection_plan(request, plan_id):
 @api_view(['PATCH', 'PUT'])
 @permission_classes([IsAuthenticated])
 def update_inspection_schedule(request, schedule_id):
+    if not _national_admin(request.user):
+        return JsonResponse({'error': 'National admin access required'}, status=403)
     try:
         schedule = get_object_or_404(InspectionSchedule, id=schedule_id)
         data = json.loads(request.body or '{}')
@@ -1472,6 +1498,8 @@ def update_inspection_schedule(request, schedule_id):
             schedule.facility = get_object_or_404(Facility, id=data.get('facility_id'))
         if 'assigned_inspector_id' in data:
             inspector_id = data.get('assigned_inspector_id')
+            if inspector_id and not any(u.id == int(inspector_id) and u.is_active for u in _inspector_users()):
+                return JsonResponse({'error': 'Select an active inspector'}, status=400)
             schedule.assigned_inspector_id = inspector_id or None
         if data.get('scheduled_date'):
             schedule.scheduled_date = parsed_scheduled_date
@@ -1672,3 +1700,59 @@ def get_standards(request):
 
 
 
+
+
+def _national_admin(user):
+    return getattr(getattr(getattr(user, 'userrole', None), 'role', None), 'name', '').lower() == 'national_admin'
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def review_facility_plans(request):
+    from django.db import transaction
+    if not _national_admin(request.user):
+        return JsonResponse({'error': 'National admin access required'}, status=403)
+    if request.method == 'GET':
+        return JsonResponse([_serialize_facility_plan(p) for p in InspectionPlan.objects.all()
+            if _facility_plan_meta(p).get('facility_plan') and _facility_plan_meta(p).get('status') in ['submitted', 'approved']], safe=False)
+    try:
+        with transaction.atomic():
+            plan = get_object_or_404(InspectionPlan.objects.select_for_update(), id=request.data.get('id'))
+            meta = _facility_plan_meta(plan)
+            if not meta.get('facility_plan') or meta.get('status') not in ['submitted', 'approved']:
+                return JsonResponse({'error': 'Plan is not awaiting review or assignment'}, status=400)
+            action = request.data.get('action')
+            if action == 'assign':
+                if meta.get('status') != 'approved':
+                    return JsonResponse({'error': 'Approve the plan before assigning an inspector'}, status=400)
+                inspector = next((u for u in _inspector_users() if u.is_active and u.id == int(request.data.get('inspector_id') or 0)), None)
+                if not inspector:
+                    return JsonResponse({'error': 'Select an active inspector'}, status=400)
+                plan.schedules.update(assigned_inspector=inspector)
+            elif action in ['save', 'approve'] and meta.get('status') == 'submitted':
+                title = request.data.get('title', plan.title).strip()
+                start = datetime.strptime(request.data.get('preparation_date', str(plan.start_date)), '%Y-%m-%d').date()
+                end = datetime.strptime(request.data.get('end_date', str(start)), '%Y-%m-%d').date()
+                if not title or end < start:
+                    return JsonResponse({'error': 'A title and valid date range are required'}, status=400)
+                plan.title, plan.start_date, plan.end_date = title, start, end
+                meta['description'] = request.data.get('description', meta.get('description', ''))
+                if action == 'approve':
+                    meta['status'] = 'approved'
+                    plan.status = 'published'
+                    InspectionSchedule.objects.get_or_create(plan=plan, facility_id=plan.facility_ids[0], defaults={
+                        'scheduled_date': start, 'deadline': end, 'status': 'scheduled'})
+                plan.description = json.dumps(meta)
+                plan.save()
+            else:
+                return JsonResponse({'error': 'Invalid review action'}, status=400)
+        return JsonResponse({'success': True})
+    except (ValueError, TypeError) as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def assigned_schedules(request):
+    rows = InspectionSchedule.objects.filter(assigned_inspector=request.user).select_related('plan', 'facility', 'assigned_inspector')
+    return JsonResponse([_serialize_schedule(row) for row in rows], safe=False)

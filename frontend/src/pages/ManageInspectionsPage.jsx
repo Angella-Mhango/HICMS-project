@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Edit2, Archive, CheckCircle, EyeOff, AlertCircle, ChevronDown, ChevronRight, ClipboardCheck, RefreshCw, Search } from "lucide-react";
 import Layout from "../components/Layout";
 import ManageStandardsModal from "../components/ManageStandardsModal";
+import ConfirmationDialog from "../components/ConfirmationDialog";
 import { showToast } from "../components/Toast";
 
 const API_BASE = "http://127.0.0.1:8000";
@@ -12,6 +13,16 @@ export default function ManageInspectionsPage({ user, onLogout }) {
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [modalAction, setModalAction] = useState(null);
+  const [confirmation, setConfirmation] = useState(null);
+
+  const requestConfirmation = (title, message, confirmLabel) => new Promise((resolve) => {
+    setConfirmation({ title, message, confirmLabel, resolve });
+  });
+
+  const closeConfirmation = (confirmed) => {
+    confirmation.resolve(confirmed);
+    setConfirmation(null);
+  };
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [expandedStandards, setExpandedStandards] = useState(new Set());
@@ -63,10 +74,13 @@ export default function ManageInspectionsPage({ user, onLogout }) {
 
   const archiveStandard = async (standardId) => {
     const target = standards.find((item) => item.id === standardId);
-    const confirmed = window.confirm(
+    const action = target?.is_active === false ? "Restore" : "Archive";
+    const confirmed = await requestConfirmation(
+      `${action} standard`,
       target?.is_active === false
         ? `Restore "${target?.name || "this standard"}"?`
-        : `Archive "${target?.name || "this standard"}"?`
+        : `Archive "${target?.name || "this standard"}"?`,
+      action
     );
 
     if (!confirmed) return;
@@ -96,10 +110,13 @@ export default function ManageInspectionsPage({ user, onLogout }) {
       .flatMap((standard) => (standard.requirements || []).map((req) => ({ ...req, standardId: standard.id })))
       .find((req) => req.id === requirementId);
 
-    const confirmed = window.confirm(
+    const action = target?.is_active === false ? "Restore" : "Archive";
+    const confirmed = await requestConfirmation(
+      `${action} requirement`,
       target?.is_active === false
         ? `Restore "${target?.name || "this requirement"}"?`
-        : `Archive "${target?.name || "this requirement"}"?`
+        : `Archive "${target?.name || "this requirement"}"?`,
+      action
     );
 
     if (!confirmed) return;
@@ -131,7 +148,7 @@ export default function ManageInspectionsPage({ user, onLogout }) {
 
     if (!requirement) return;
 
-    const confirmed = window.confirm("Remove this criterion from the requirement?");
+    const confirmed = await requestConfirmation("Remove criterion", "Remove this criterion from the requirement?", "Remove");
     if (!confirmed) return;
 
     try {
@@ -458,6 +475,15 @@ export default function ManageInspectionsPage({ user, onLogout }) {
             })}
           </div>
         )}
+      {confirmation && (
+        <ConfirmationDialog
+          title={confirmation.title}
+          message={confirmation.message}
+          confirmLabel={confirmation.confirmLabel}
+          onConfirm={() => closeConfirmation(true)}
+          onCancel={() => closeConfirmation(false)}
+        />
+      )}
       {showModal && (
         <ManageStandardsModal
           user={user}
